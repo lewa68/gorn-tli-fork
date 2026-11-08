@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -10,11 +11,54 @@ import { join } from 'node:path';
 
 const LOG_SUBPATH = join('UE_game', 'TorchLight', 'Saved', 'Logs');
 
+/**
+ * Разбор вывода `reg query … /v InstallPath`:
+ * «\r\nHKEY_LOCAL_MACHINE\…\r\n    InstallPath    REG_SZ    E:\steam\r\n».
+ * Вынесен отдельно, чтобы парсер можно было проверить тестом без реестра.
+ */
+export function parseInstallPath(regOutput: string): string | null {
+  const m = regOutput.match(/InstallPath\s+REG_SZ\s+(\S.*)/);
+  return m ? m[1]!.trim() : null;
+}
+
+/**
+ * Путь установки Steam из реестра Windows.
+ *
+ * Steam ставится не только в Program Files: игрок, выбравший другой диск
+ * при установке, оставляет там же и библиотеку по умолчанию — и без этой
+ * ветки игра не находилась вовсе, хотя libraryfolders.vdf честно описывает
+ * все библиотеки. Ключи пишёт сам Steam; reg есть в любой Windows.
+ */
+function registrySteamPaths(): string[] {
+  if (process.platform !== 'win32') return [];
+  const keys = [
+    'HKLM\\SOFTWARE\\WOW6432Node\\Valve\\Steam',
+    'HKLM\\SOFTWARE\\Valve\\Steam',
+    'HKCU\\Software\\Valve\\Steam',
+  ];
+  const out: string[] = [];
+  for (const key of keys) {
+    try {
+      const text = execFileSync('reg', ['query', key, '/v', 'InstallPath'], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: 2000,
+      });
+      const path = parseInstallPath(text);
+      if (path) out.push(path);
+    } catch {
+      // Ключа нет или reg недоступен — это нормально, поиск продолжается.
+    }
+  }
+  return out;
+}
+
 /** Папки Steam-библиотек из libraryfolders.vdf. */
 function steamLibraries(): string[] {
   const roots = [
     join(process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)', 'Steam'),
     join(process.env['ProgramFiles'] ?? 'C:\\Program Files', 'Steam'),
+    ...registrySteamPaths(),
   ];
 
   const libs: string[] = [];
