@@ -86,6 +86,7 @@ export function ToastLayerApp() {
     exaltedFe: 5,
     fontScale: 1,
     goalFe: 0,
+  hideOutOfGame: true,
   });
   const root = useRef<HTMLDivElement>(null);
 
@@ -153,6 +154,7 @@ export function ToastLayerApp() {
         exaltedFe: s.exaltedFe ?? 5,
         fontScale: s.fontScale ?? 1,
         goalFe: s.goalFe ?? 0,
+        hideOutOfGame: s.hideOutOfGame ?? true,
       });
     });
     const offSnapshot = window.gorn.onSnapshot(setSnapshot);

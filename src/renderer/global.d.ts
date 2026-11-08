@@ -19,6 +19,7 @@ declare global {
     exaltedFe: number;
     fontScale: number;
     goalFe: number;
+    hideOutOfGame: boolean;
   }
 
   interface GornOverlayApi {
@@ -35,6 +36,7 @@ declare global {
       jackpotFe: number;
       exaltedFe: number;
       goalFe: number;
+      hideOutOfGame: boolean;
     }>;
     toggle: () => Promise<boolean>;
     close: () => void;

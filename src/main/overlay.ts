@@ -40,6 +40,7 @@ export function prefsPayload(prefs: Settings['overlay']): {
   exaltedFe: number;
   fontScale: number;
   goalFe: number;
+  hideOutOfGame: boolean;
 } {
   return {
     popups: prefs.popups,
@@ -50,6 +51,7 @@ export function prefsPayload(prefs: Settings['overlay']): {
     exaltedFe: prefs.exaltedFe,
     fontScale: prefs.fontScale,
     goalFe: prefs.goalFe,
+    hideOutOfGame: prefs.hideOutOfGame,
   };
 }
 
@@ -77,6 +79,13 @@ export class Overlay {
 
   /** Зовётся при каждом открытии/закрытии — главное окно держит кнопку в актуальном виде. */
   onOpenChanged: ((open: boolean) => void) | null = null;
+
+  /**
+   * Игра не в фокусе: окно прячется, не меняя «включён» в настройках.
+   * Слой отдельный от enabled: игрок не должен терять оверлей из-за
+   * альт-таба — и не должен видеть его поверх браузера.
+   */
+  private gameHidden = false;
 
   constructor(private readonly settings: SettingsStore) {}
 
@@ -137,7 +146,11 @@ export class Overlay {
     this.applyClickThrough(prefs.locked);
     this.window.setOpacity(prefs.opacity);
 
-    this.window.once('ready-to-show', () => this.window?.showInactive());
+    // Подавление «вне игры» действует и на только что открытое окно:
+    // включили оверлей из браузера — он подождёт возвращения в игру.
+    this.window.once('ready-to-show', () => {
+      if (this.window && !this.gameHidden) this.window.showInactive();
+    });
     this.window.on('moved', () => this.rememberPosition());
     this.window.on('closed', () => {
       this.window = null;
@@ -180,6 +193,21 @@ export class Overlay {
     this.applyClickThrough(locked);
     this.send('overlay:locked', locked);
     return locked;
+  }
+
+  /**
+   * Игра ушла из фокуса — спрятать окно, вернулась — показать.
+   * Не трогает состояние «включён»: подавление проходит мимо настроек.
+   */
+  setGameHidden(hidden: boolean): void {
+    if (this.gameHidden === hidden) return;
+    this.gameHidden = hidden;
+    if (!this.isOpen) return;
+    if (hidden) {
+      this.window?.hide();
+    } else {
+      this.window?.showInactive();
+    }
   }
 
   toggleLocked(): boolean {
@@ -264,6 +292,7 @@ export class Overlay {
     exaltedFe?: number;
     fontScale?: number;
     goalFe?: number;
+    hideOutOfGame?: boolean;
   }): void {
     const clean = { ...patch };
     if (clean.volume !== undefined) {
@@ -289,6 +318,8 @@ export class Overlay {
     }
     const prefs = this.settings.patchOverlay(clean);
     if (clean.fontScale !== undefined) this.applyFontScale();
+    // Привязку выключили — немедленно вернуть окно, не дожидаясь фокуса.
+    if (clean.hideOutOfGame === false) this.setGameHidden(false);
     this.send('overlay:prefs', prefsPayload(prefs));
   }
 

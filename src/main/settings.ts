@@ -103,6 +103,11 @@ export interface Settings {
     introShown: boolean;
     /** Цель сессии в ФЕ: оверлей показывает прогресс. 0 — выключено. */
     goalFe: number;
+    /**
+     * Прятать оверлей, когда фокус не у игры. Поверх браузера и мессенджеров
+     * ему делать нечего; окно игры снова активно — оверлей возвращается.
+     */
+    hideOutOfGame: boolean;
   };
 }
 
@@ -135,6 +140,7 @@ const DEFAULTS: Settings = {
     exaltedFe: 5,
     introShown: false,
     goalFe: 0,
+    hideOutOfGame: true,
   },
 };
 

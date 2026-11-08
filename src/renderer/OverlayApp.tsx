@@ -54,6 +54,7 @@ const DEFAULT_PREFS: GornOverlayPrefs = {
   exaltedFe: 5,
   fontScale: 1,
   goalFe: 0,
+  hideOutOfGame: true,
 };
 
 export function OverlayApp() {
@@ -180,6 +181,7 @@ export function OverlayApp() {
         exaltedFe: s.exaltedFe ?? 5,
         fontScale: s.fontScale ?? 1,
         goalFe: s.goalFe ?? 0,
+        hideOutOfGame: s.hideOutOfGame ?? true,
       });
     });
     const offSnapshot = window.gorn.onSnapshot(setSnapshot);

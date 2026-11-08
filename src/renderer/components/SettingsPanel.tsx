@@ -126,6 +126,7 @@ export function SettingsPanel({
     fontScale: 1,
     opacity: 0.9,
     goalFe: 0,
+    hideOutOfGame: true,
   });
   const [sys, setSys] = useState<GornAppSettings | null>(null);
   const [community, setCommunity] = useState(true);
@@ -153,6 +154,7 @@ export function SettingsPanel({
         fontScale: s.fontScale ?? 1,
         opacity: s.opacity ?? 0.9,
         goalFe: s.goalFe ?? 0,
+        hideOutOfGame: s.hideOutOfGame ?? true,
       });
     });
     refreshSys();
@@ -378,6 +380,21 @@ export function SettingsPanel({
               className="set-num"
               value={prefs.goalFe}
               onChange={(e) => patch({ goalFe: Math.max(0, Number(e.target.value) || 0) })}
+            />
+          </label>
+          <label className="set-row">
+            <span
+              title={tr(
+                'Оверлей прячет себя, когда фокус у другого окна (браузер, мессенджер), и возвращается поверх игры. Окна самого Горна не считаются чужими.',
+                'The overlay hides itself while another window has focus (browser, messenger) and returns over the game. Gorn’s own windows don’t count as foreign.',
+              )}
+            >
+              {tr('Прятать, когда игра не активна', 'Hide while the game is unfocused')}
+            </span>
+            <input
+              type="checkbox"
+              checked={prefs.hideOutOfGame}
+              onChange={(e) => patch({ hideOutOfGame: e.target.checked })}
             />
           </label>
           <p className="muted small">

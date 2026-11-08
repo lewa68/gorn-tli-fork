@@ -27,6 +27,7 @@ import { guardIpc, guardWebContents, isAppUrl } from './security.js';
 import { SettingsStore, type NameLanguage, type OverlayMode } from './settings.js';
 import { SnapshotGate } from './snapshotGate.js';
 import { ToastLayer } from './toastLayer.js';
+import { GameFocusWatcher } from './gameFocus.js';
 import { Updater, type UpdateState } from './updater.js';
 
 // Схему нужно объявить до готовности приложения.
@@ -68,6 +69,7 @@ const windowSnapshots = new SnapshotGate<Snapshot>(() =>
 );
 let overlay: Overlay | null = null;
 let toastLayer: ToastLayer | null = null;
+let gameFocus: GameFocusWatcher | null = null;
 let panel: Panel | null = null;
 let settings: SettingsStore | null = null;
 let debugSink: DebugSink | null = null;
@@ -264,6 +266,20 @@ app.whenReady().then(async () => {
   overlay = new Overlay(settings);
   toastLayer = new ToastLayer(settings);
   panel = new Panel(() => settings?.overlay.fontScale ?? 1);
+
+  // Привязка оверлея к окну игры: фокус ушёл к чужому окну — спрятать,
+  // вернулся к игре (или к окнам самого Горна) — показать. Наблюдатель
+  // живёт в отдельном процессе и при падении молчит: оверлей остаётся
+  // видимым, как до привязки.
+  gameFocus = new GameFocusWatcher();
+  gameFocus.onFocus = (gameFocused) => {
+    if (settings?.overlay.hideOutOfGame) overlay?.setGameHidden(!gameFocused);
+  };
+  gameFocus.onGamePresence = (running) => {
+    // Игры нет — прятать нечего: оверлей ведёт себя как раньше.
+    if (!running && settings?.overlay.hideOutOfGame) overlay?.setGameHidden(false);
+  };
+  gameFocus.start();
   engine = new Engine(app.getPath('userData'), items, settings.itemNames, {
     communityPrices: settings.communityPrices,
     playerFilter: settings.playerFilter,
@@ -685,6 +701,7 @@ function registerShortcuts(): void {
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   prison?.dispose();
+  gameFocus?.stop();
 });
 
 app.on('window-all-closed', () => {
