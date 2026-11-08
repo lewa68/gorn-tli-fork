@@ -98,8 +98,8 @@ export function UpdateBanner() {
         <>
           <span className="muted small">
             {tr(
-              'Это сборка с локальными фиксами — кнопка «Загрузить» поставила бы официальный билд без них. Попросите ассистента: «обнови Горн».',
-              'This is a fork build with local fixes — the Download button would install the official build without them. Ask the assistant to update it.',
+              'Портативная сборка обновляется вручную: попросите ассистента «обнови Горн» — новая версия соберётся с фиксами.',
+              'The portable build updates manually: ask the assistant to rebuild it with the fixes.',
             )}
           </span>
           <button

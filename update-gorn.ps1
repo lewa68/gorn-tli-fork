@@ -2,12 +2,12 @@
 #
 # Наши фиксы живут коммитами в этом репозитории (git log --oneline).
 # Когда автор выпускает новую версию:
-#   .\update-gorn.ps1            — влить upstream/main, проверить, собрать
+#   .\update-gorn.ps1            — влить upstream, проверить, собрать и опубликовать
 #   .\update-gorn.ps1 -SkipBuild — только влить и проверить, без сборки
 #
-# Схема: у портативной версии автообновление выключено самой природой
-# портативности, поэтому официальный апдейтер никогда не затрёт наши
-# правки — обновляемся только этим скриптом.
+# Канал обновлений — форк-репозиторий на GitHub (publish в package.json).
+# Установленные приложения сами качают и ставят новые релизы с него:
+# в каждой версии — «официальная + наши фиксы».
 param([switch]$SkipBuild)
 
 $ErrorActionPreference = 'Stop'
@@ -21,7 +21,7 @@ try {
     exit 1
   }
 
-  Write-Host "== 1/5 Забираю upstream ==" -ForegroundColor Cyan
+  Write-Host "== 1/6 Забираю upstream ==" -ForegroundColor Cyan
   git fetch upstream main
   $base = git rev-parse HEAD
   $theirs = git rev-parse upstream/main
@@ -41,26 +41,34 @@ try {
 "@ -ForegroundColor Yellow
       exit 1
     }
+    git push -q origin master
   }
 
-  Write-Host "== 2/5 Зависимости ==" -ForegroundColor Cyan
+  Write-Host "== 2/6 Зависимости ==" -ForegroundColor Cyan
   npm install --no-audit --no-fund | Out-Null
 
-  Write-Host "== 3/5 Типы ==" -ForegroundColor Cyan
+  Write-Host "== 3/6 Типы ==" -ForegroundColor Cyan
   npm run typecheck
   if ($LASTEXITCODE -ne 0) { throw "typecheck упал" }
 
-  Write-Host "== 4/5 Тесты ==" -ForegroundColor Cyan
+  Write-Host "== 4/6 Тесты ==" -ForegroundColor Cyan
   npx vitest run --no-file-parallelism
   if ($LASTEXITCODE -ne 0) { throw "тесты упали" }
+
+  $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
 
   if ($SkipBuild) {
     Write-Host "Сборка пропущена (-SkipBuild). Запуск: npm start" -ForegroundColor Green
   } else {
-    Write-Host "== 5/5 Сборка portable + установщика ==" -ForegroundColor Cyan
+    Write-Host "== 5/6 Сборка portable + установщика ==" -ForegroundColor Cyan
     npm run dist
     if ($LASTEXITCODE -ne 0) { throw "сборка упала" }
-    Write-Host "Готово: release\Gorn-*-portable.exe и Gorn-*-setup.exe" -ForegroundColor Green
+    $setup = "release/Gorn-$version-setup.exe"
+
+    Write-Host "== 6/6 Публикация релиза v$version на канал обновлений ==" -ForegroundColor Cyan
+    git push -q origin master
+    gh release create "v$version" $setup "$setup.blockmap" "release/latest.yml" "release/Gorn-$version-portable.exe" --title "Горн $version (официальная версия + фиксы форка)" --notes "Автосборка форка: версия автора + локальные фиксы. Коммиты форка: git log." 2>&1 | Write-Host
+    Write-Host "Готово: установленные приложения обновятся сами при следующей проверке." -ForegroundColor Green
   }
 } finally {
   Pop-Location

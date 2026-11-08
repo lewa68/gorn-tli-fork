@@ -22,11 +22,11 @@ export interface UpdateState {
 }
 
 /**
- * Эта сборка — форк с локальными фиксами (наши коммиты поверх upstream).
- * Кнопка «Загрузить» ставит официальный билд автора и стирает фиксы,
- * поэтому в форке она выключена: проверка новой версии остаётся,
- * а обновление собирает и ставит ассистент (update-gorn.ps1).
- * При слиянии нового upstream константа продолжает держать защиту.
+ * Эта сборка — форк с собственным каналом обновлений (publish в
+ * package.json указывает на форк-репозиторий). Канал уже содержит наши
+ * фиксы, поэтому автообновление безопасно: качается «версия автора +
+ * фиксы», а не официальный билд. Релизы на канал публикует ассистент
+ * (update-gorn.ps1: merge upstream -> тесты -> dist -> gh release).
  */
 export const FORK_BUILD = true;
 
@@ -87,10 +87,13 @@ export class Updater extends EventEmitter {
 
   constructor() {
     super();
-    // Форк не обновляет сам себя официальным билдом — фиксы сотрутся.
-    this.state.supported = app.isPackaged && !this.isPortable && !FORK_BUILD;
+    // Форк обновляется со своего канала (см. publish в package.json) —
+    // там всегда «официальная версия + наши фиксы», официальное
+    // обновление фиксы не затирает.
+    this.state.supported = app.isPackaged && !this.isPortable;
 
-    autoUpdater.autoDownload = false;
+    // Качаем сами: канал форка, трафик — раз в несколько недель.
+    autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
     // Своё окно с прогрессом нам не нужно, но и молчать нельзя.
     autoUpdater.logger = null;

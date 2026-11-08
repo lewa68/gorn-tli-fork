@@ -33,7 +33,7 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "lanqvist",
+      "owner": "lewa68",
       "repo": "gorn-tli"
     },
     "files": [
