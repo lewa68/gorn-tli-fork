@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CommunityPriceFeed } from '../src/main/communityPrices.js';
+import { CommunityPriceFeed, trustworthy } from '../src/main/communityPrices.js';
 
 interface Pending {
   url: string;
@@ -95,5 +95,19 @@ describe('цены сообщества: смена сезона посреди 
     expect(feed.stale).toBe(false);
     expect(feed.fetchedAtMs).not.toBeNull();
     feed.stop();
+  });
+});
+
+describe('доверие агрегату цен сообщества', () => {
+  it('одна пробивка с одного устройства — не рынок', () => {
+    // Подлинный случай: безымянный id 4623 получил 4500 ФЕ от единственной
+    // пробивки — три находки задали 40% всего оценённого дохода.
+    expect(trustworthy({ submissions: 1, devices: 1 })).toBe(false);
+  });
+
+  it('вторая пробивка или второе устройство подкрепляют цену', () => {
+    expect(trustworthy({ submissions: 2, devices: 1 })).toBe(true);
+    expect(trustworthy({ submissions: 1, devices: 2 })).toBe(true);
+    expect(trustworthy({ submissions: 47, devices: 52 })).toBe(true);
   });
 });

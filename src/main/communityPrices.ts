@@ -50,6 +50,20 @@ export interface CommunityPrice {
   updatedAt: string;
 }
 
+/**
+ * Достаточно ли в агрегате пробивок, чтобы считать его ценой рынка.
+ *
+ * Одна пробивка с одного устройства — не рынок, а случай: опечатка при
+ * вводе, демпинг или цена уникального ролла задаёт предмету цену на
+ * тысячи ФЕ (на реальной машине 40% всего оценённого дохода держались
+ * на трёх предметах с таким агрегатом — 4500 ФЕ за безымянный id 4623).
+ * Такой агрегат ценой не считается — предмет остаётся без цены, пока
+ * рынок не подкрепит его второй пробивкой или вторым устройством.
+ */
+export function trustworthy(price: Pick<CommunityPrice, 'submissions' | 'devices'>): boolean {
+  return price.submissions >= 2 || price.devices >= 2;
+}
+
 interface WireRow {
   config_base_id: number;
   price_fe_median: number;

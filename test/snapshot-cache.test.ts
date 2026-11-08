@@ -44,7 +44,8 @@ vi.mock('../src/core/retroScan.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../src/core/retroScan.js')>()),
   retroScan: async () => scan.result,
 }));
-vi.mock('../src/main/communityPrices.js', () => ({
+vi.mock('../src/main/communityPrices.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../src/main/communityPrices.js')>()),
   CommunityPriceFeed: class {
     onUpdate(): void {}
     start(): void {}
@@ -71,8 +72,8 @@ vi.mock('../src/main/communityPrices.js', () => ({
         configBaseId,
         fe,
         p10: fe,
-        submissions: 1,
-        devices: 1,
+        submissions: 3,
+        devices: 2,
         updatedAt: new Date(feeds.updatedAt).toISOString(),
       };
     }

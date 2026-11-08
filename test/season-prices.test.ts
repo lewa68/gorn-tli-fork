@@ -40,7 +40,8 @@ vi.mock('../src/core/retroScan.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../src/core/retroScan.js')>()),
   retroScan: async () => scan.result,
 }));
-vi.mock('../src/main/communityPrices.js', () => ({
+vi.mock('../src/main/communityPrices.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../src/main/communityPrices.js')>()),
   CommunityPriceFeed: class {
     private season: number | null = null;
     onUpdate(): void {}
@@ -72,7 +73,7 @@ vi.mock('../src/main/communityPrices.js', () => ({
       return (this.season !== null && feeds.prices.get(this.season)) || new Map();
     }
     private row(configBaseId: number, fe: number) {
-      return { configBaseId, fe, p10: fe, submissions: 1, devices: 1, updatedAt: new Date(0).toISOString() };
+      return { configBaseId, fe, p10: fe, submissions: 3, devices: 2, updatedAt: new Date(0).toISOString() };
     }
   },
 }));
