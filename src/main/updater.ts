@@ -152,6 +152,9 @@ export class Updater extends EventEmitter {
   /** Перезапуск с установкой. Вызывается только по явному нажатию. */
   install(): void {
     if (this.state.status !== 'ready') return;
-    autoUpdater.quitAndInstall();
+    // Тихая установка с перезапуском: без параметров electron-updater
+    // показывает мастер установщика — игроку нечего в нём решать, путь
+    // и настройки давно определены.
+    autoUpdater.quitAndInstall(true, true);
   }
 }
