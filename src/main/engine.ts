@@ -66,7 +66,7 @@ import {
   type Run,
 } from '../core/types.js';
 import { Storage } from '../storage/db.js';
-import { CommunityPriceFeed } from './communityPrices.js';
+import { CommunityPriceFeed, trustworthy } from './communityPrices.js';
 import { iconUrl } from './icons.js';
 import { LogTailer } from './tailer.js';
 
@@ -979,7 +979,12 @@ export class Engine extends EventEmitter {
     const past = season === null || season === this.seasonId ? null : this.pastSeasonPrices(season);
     const own = (past ? past.own : this.prices).get(id) ?? null;
     const feed = past ? past.community : this.community;
-    const community = this.communityEnabled && feed ? feed.priceOf(id) : null;
+    const feedPrice = this.communityEnabled && feed ? feed.priceOf(id) : null;
+    // Агрегат из одной пробивки с одного устройства — не рынок, а случай
+    // (правило и причина — в trustworthy): цена сообщества у такого
+    // предмета отсутствует, он попадает в «без цены» и «что пробить
+    // следующим», пока рынок не подкрепит оценку.
+    const community = feedPrice && trustworthy(feedPrice) ? feedPrice : null;
     return choosePrice(
       own,
       community && {
@@ -1457,11 +1462,18 @@ export class Engine extends EventEmitter {
       minDropFe: this.minDropFe,
       // «Пробить цену» — только про текущий сезон: рынок прошлого закрыт,
       // и пробить там уже нечего.
+      //
+      // Предмет вне справочника не предлагается пробить: имени у него нет,
+      // в Торговом доме игрок его не найдёт (новые предметы сезона, которых
+      // нет в выгрузке), и строка «id 4623» только пугает. Такой дроп не
+      // влияет ни на одну цифру — цены у него всё равно нет. Когда выгрузка
+      // подхватит предмет, он сам появится здесь с настоящим названием.
       missing: missingPrices(
         openFarming && this.isCurrentSeason(openFarming) ? [openFarming] : [],
         this.priceOf,
         agg.missing,
       )
+        .filter((m) => this.items.has(m.configBaseId))
         .slice(0, 8)
         .map((m) => ({
           ...m,

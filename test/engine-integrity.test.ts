@@ -330,3 +330,23 @@ describe('отзыв лота через перезапуск', () => {
     expect((second as unknown as EngineInternals).trade.activeListings()).toEqual([]);
   });
 });
+
+describe('«Пробить цену» без справочника', () => {
+  it('предмет вне справочника не предлагается пробить — у него нет имени, в Торговом доме его не найти', async () => {
+    // Дроп: известный справочнику предмет без цены и два неизвестных id
+    // нового сезона (справочник SS14 не знает предметов SS16).
+    const UNKNOWN = 4623;
+    const t = NOW - 2 * HOUR;
+    const runs = [run(t, 10 * MIN, [drop(t + MIN, 3, ITEM), drop(t + 2 * MIN, 2, UNKNOWN)])];
+    scan.result = scanResult({ runs });
+    const engine = makeEngine();
+    await engine.start(dir);
+    const snap = (engine as unknown as EngineInternals).buildSnapshot();
+
+    const ids = snap.missing.map((m) => m.configBaseId);
+    expect(ids).toContain(ITEM);
+    expect(ids).not.toContain(UNKNOWN);
+    // Неизвестный предмет и называться должен честно — id, не «undefined».
+    expect(snap.missing.find((m) => m.configBaseId === ITEM)?.name).toBe('Item');
+  });
+});
