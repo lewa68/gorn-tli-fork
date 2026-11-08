@@ -348,5 +348,14 @@ describe('«Пробить цену» без справочника', () => {
     expect(ids).not.toContain(UNKNOWN);
     // Неизвестный предмет и называться должен честно — id, не «undefined».
     expect(snap.missing.find((m) => m.configBaseId === ITEM)?.name).toBe('Item');
+
+    // То же правило — в забегах и ценах: безымянный id не показывается нигде.
+    const recent = snap.recent[0]!;
+    expect(recent.drops.map((d) => d.configBaseId)).toContain(ITEM);
+    expect(recent.drops.map((d) => d.configBaseId)).not.toContain(UNKNOWN);
+
+    const prices = (engine as unknown as { queryPrices(q: string): Array<{ configBaseId: number }> }).queryPrices('');
+    expect(prices.map((p) => p.configBaseId)).toContain(ITEM);
+    expect(prices.map((p) => p.configBaseId)).not.toContain(UNKNOWN);
   });
 });

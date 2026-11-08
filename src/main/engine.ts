@@ -945,8 +945,13 @@ export class Engine extends EventEmitter {
    * маяк сокращается до плана и метки.
    */
   private strategyTitle(costItems: ConfigBaseId[]): string {
-    if (costItems.length === 0) return tr('Без вложений', 'No map costs');
-    return costItems
+    // Полные названия маяков не помещаются в карточку («Bronze Wick +
+    // Voidlands Beacon (Timemark 8)» обрезается на полуслове), поэтому
+    // маяк сокращается до плана и метки. Предметы вне справочника в
+    // название не попадают: безымянный id в заголовке — мусор.
+    const known = costItems.filter((id) => this.items.has(id));
+    if (known.length === 0) return tr('Без вложений', 'No map costs');
+    return known
       .map((id) => {
         const info = this.items.get(id);
         if (!info) return `id ${id}`;
@@ -1234,10 +1239,12 @@ export class Engine extends EventEmitter {
     let ids: ConfigBaseId[];
     if (needle === '') {
       const impact = (id: ConfigBaseId) => (this.priceOf(id) ?? 0) * (seen.get(id) ?? 0);
+      // Предмет вне справочника не показывается: имени нет, цена ему не
+      // грозит, строка «id 4623» в таблице не говорит ничего.
       ids = [
-        ...[...this.excluded],
+        ...[...this.excluded].filter((id) => this.items.has(id)),
         ...[...seen.keys()]
-          .filter((id) => id !== FE_ID && !this.excluded.has(id))
+          .filter((id) => id !== FE_ID && !this.excluded.has(id) && this.items.has(id))
           .sort((a, b) => impact(b) - impact(a) || (seen.get(b) ?? 0) - (seen.get(a) ?? 0)),
       ];
     } else {
@@ -1318,6 +1325,9 @@ export class Engine extends EventEmitter {
     }
 
     return [...byItem.entries()]
+      // Предметы вне справочника не показываются: безымянный id в списке
+      // добычи не говорит ничего, цены у него всё равно нет.
+      .filter(([configBaseId]) => this.items.has(configBaseId))
       .map(([configBaseId, qty]) => {
         const info = this.items.get(configBaseId);
         const unitFe = priceOf(configBaseId);
@@ -1578,11 +1588,13 @@ export class Engine extends EventEmitter {
         .map((s) => ({
           ...s,
           title: this.strategyTitle(s.costItems),
-          costItems: s.costItems.map((id) => ({
-            configBaseId: id,
-            name: this.displayName(id),
-            icon: this.items.get(id)?.icon ? iconUrl(id) : null,
-          })),
+          costItems: s.costItems
+            .filter((id) => this.items.has(id))
+            .map((id) => ({
+              configBaseId: id,
+              name: this.displayName(id),
+              icon: this.items.get(id)?.icon ? iconUrl(id) : null,
+            })),
         })),
       maps: groupByMap(rated, (r) => this.mapName(r.asset, r.areaId), pricing).slice(0, 8),
       days: dailyTotals(farming, pricing, 14, now),
