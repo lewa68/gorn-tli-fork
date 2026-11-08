@@ -34,7 +34,7 @@
     "publish": {
       "provider": "github",
       "owner": "lewa68",
-      "repo": "gorn-tli"
+      "repo": "gorn-tli-fork"
     },
     "files": [
       "dist/**",

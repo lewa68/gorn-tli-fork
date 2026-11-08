@@ -67,7 +67,7 @@ try {
 
     Write-Host "== 6/6 Публикация релиза v$version на канал обновлений ==" -ForegroundColor Cyan
     git push -q origin master
-    gh release create "v$version" $setup "$setup.blockmap" "release/latest.yml" "release/Gorn-$version-portable.exe" --repo lewa68/gorn-tli --title "Горн $version (официальная версия + фиксы форка)" --notes "Автосборка форка: версия автора + локальные фиксы. Коммиты форка: git log." 2>&1 | Write-Host
+    gh release create "v$version" $setup "$setup.blockmap" "release/latest.yml" "release/Gorn-$version-portable.exe" --repo lewa68/gorn-tli-fork --title "Горн $version (официальная версия + фиксы форка)" --notes "Автосборка форка: версия автора + локальные фиксы. Коммиты форка: git log." 2>&1 | Write-Host
     Write-Host "Готово: установленные приложения обновятся сами при следующей проверке." -ForegroundColor Green
   }
 } finally {

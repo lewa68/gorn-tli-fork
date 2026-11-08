@@ -120,5 +120,16 @@ jobs:
         run: npx electron-builder --win --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Готовый релиз, не черновик: установленные приложения должны видеть.
           GH_DRAFT: 'false'
+
+      - name: Заметки релиза — отличия от официальной версии
+        if: steps.ver.outputs.publish == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          $diff = git log --oneline --no-decorate upstream/main..HEAD |
+            Where-Object { $_ -notmatch 'Версия форка' }
+          @("Отличия от официальной версии:", "") + $diff | Set-Content release-notes.txt -Encoding utf8
+          gh release edit "v$env:VERSION" --notes-file release-notes.txt
