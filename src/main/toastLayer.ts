@@ -35,6 +35,12 @@ export class ToastLayer {
   private anchorBottom = 0;
   /** Урезанный срез и отсев неизменившихся. */
   private readonly feed = new ToastFeed();
+  /**
+   * Перестановка плашек (Ctrl+Alt+D): окно принимает мышь, рисует
+   * полоску-ручку и запоминает положение. Обычно клики идут сквозь,
+   * поэтому двигать можно только в этом режиме.
+   */
+  private adjusting = false;
 
   constructor(private readonly settings: SettingsStore) {}
 
@@ -65,7 +71,8 @@ export class ToastLayer {
       frame: false,
       transparent: true,
       resizable: false,
-      movable: false,
+      // movable нужен для перетаскивания в режиме перестановки.
+      movable: true,
       minimizable: false,
       maximizable: false,
       fullscreenable: false,
@@ -90,6 +97,12 @@ export class ToastLayer {
     this.window.on('closed', () => {
       this.window = null;
     });
+    // Перетаскивание в режиме перестановки: нижняя кромка (якорь стека)
+    // важнее верхней, поэтому запоминаем именно её. moved срабатывает и на
+    // программный setBounds (рост стека) — его писать в настройки не нужно.
+    this.window.on('moved', () => {
+      if (this.adjusting) this.rememberAnchor();
+    });
 
     const devServer = process.env['VITE_DEV_SERVER_URL'];
     if (devServer) {
@@ -103,6 +116,8 @@ export class ToastLayer {
   close(): void {
     if (this.hideTimer) clearTimeout(this.hideTimer);
     this.hideTimer = null;
+    // Окно пересоздаётся с чистым renderer'ом — режим перестановки не переживает.
+    this.adjusting = false;
     this.window?.close();
     this.window = null;
   }
@@ -112,6 +127,11 @@ export class ToastLayer {
     if (!this.isOpen) return;
     if (this.hideTimer) clearTimeout(this.hideTimer);
     this.hideTimer = null;
+    // В режиме перестановки окно должно оставаться на виду — его тащат мышью.
+    if (this.adjusting) {
+      if (!this.window!.isVisible()) this.window!.showInactive();
+      return;
+    }
 
     if (active) {
       if (!this.window!.isVisible()) this.window!.showInactive();
@@ -120,6 +140,25 @@ export class ToastLayer {
     this.hideTimer = setTimeout(() => {
       if (this.isOpen && this.window!.isVisible()) this.window!.hide();
     }, 600);
+  }
+
+  /**
+   * Перестановка плашек мышью. Включение принимает клики и показывает
+   * ручку, выключение — запоминает положение и возвращает режим «сквозь».
+   * Возвращает новое состояние (false — слой не открыт, двигать нечего).
+   */
+  toggleAdjusting(): boolean {
+    if (!this.isOpen) return false;
+    this.adjusting = !this.adjusting;
+    if (this.adjusting) {
+      this.window!.setIgnoreMouseEvents(false);
+      if (!this.window!.isVisible()) this.window!.showInactive();
+    } else {
+      this.rememberAnchor();
+      this.window!.setIgnoreMouseEvents(true);
+    }
+    this.send('toasts:adjusting', this.adjusting);
+    return this.adjusting;
   }
 
   setContentHeight(height: number): void {
@@ -142,11 +181,37 @@ export class ToastLayer {
     if (this.isOpen) this.window?.webContents.send(channel, payload);
   }
 
+  /**
+   * Положение слоя. Если игрок переставлял плашки — стоит, где оставил
+   * (якорь — нижняя кромка, от неё растёт стек). Иначе — автоматика:
+   * монитор оверлея-панели, по горизонтали центр, чуть выше середины.
+   */
   private position(): { x: number; y: number } {
-    const overlayDisplayId = this.settings.overlay.placement?.displayId;
-    const display =
-      screen.getAllDisplays().find((d) => d.id === overlayDisplayId) ??
-      screen.getPrimaryDisplay();
+    const saved = this.settings.overlay.toastPlacement;
+    if (saved) {
+      const display =
+        screen.getAllDisplays().find((d) => d.id === saved.displayId) ?? screen.getPrimaryDisplay();
+      const area = display.workArea;
+      // Подрезка по рабочей области: монитор мог отключить — окно не должно
+      // уезжать за пределы видимого.
+      this.anchorBottom = Math.min(
+        Math.max(saved.y, area.y + MAX_HEIGHT),
+        area.y + area.height,
+      );
+      return {
+        x: Math.min(Math.max(saved.x, area.x), area.x + area.width - WIDTH),
+        y: this.anchorBottom - INITIAL_HEIGHT,
+      };
+    }
+    const savedOverlay = this.settings.overlay.placement;
+    // Панель оверлея стоит на мониторе с игрой — всплывашки должны быть
+    // там же. Поиск по сохранённой координате надёжнее поиска по id
+    // монитора: Windows меняет id при апдейте драйвера и перетаскивке
+    // кабеля, и тогда id молча подменялся основным монитором — плашки
+    // уезжали на соседний экран. Координата переживает смену id.
+    const display = savedOverlay
+      ? screen.getDisplayMatching({ x: savedOverlay.x, y: savedOverlay.y, width: WIDTH, height: INITIAL_HEIGHT })
+      : screen.getPrimaryDisplay();
     const area = display.workArea;
     // Кромка чуть выше середины: одиночная плашка стоит над персонажем,
     // а полный стек уходит вверх, не доставая до полосы босса.
@@ -155,5 +220,16 @@ export class ToastLayer {
       x: Math.round(area.x + (area.width - WIDTH) / 2),
       y: this.anchorBottom - INITIAL_HEIGHT,
     };
+  }
+
+  /** Запоминает нижнюю кромку окна как якорь плашек. */
+  private rememberAnchor(): void {
+    if (!this.window) return;
+    const bounds = this.window.getBounds();
+    this.anchorBottom = bounds.y + bounds.height;
+    const display = screen.getDisplayMatching(bounds);
+    this.settings.patchOverlay({
+      toastPlacement: { x: bounds.x, y: this.anchorBottom, displayId: display.id },
+    });
   }
 }

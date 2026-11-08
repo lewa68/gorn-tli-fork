@@ -659,6 +659,9 @@ function registerShortcuts(): void {
     ['Control+Alt+G', () => overlay?.toggle()],
     ['Control+Alt+L', () => overlay?.toggleLocked()],
     ['Control+Alt+M', () => overlay?.cycleMode()],
+    // Перестановка слоя плашек: обычно он пропускает клики всегда,
+    // двигать его можно только в этом режиме.
+    ['Control+Alt+D', () => toastLayer?.toggleAdjusting()],
     // Подсказка в тюрьме вручную: если автоматический снимок не сработал.
     ['Control+Alt+P', () => prison?.captureNow()],
     // Пульт поверх игры. Ctrl+Alt+Space на машине автора занят другой

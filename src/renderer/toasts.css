@@ -31,6 +31,29 @@ body {
   padding: 4px 0;
 }
 
+/* Режим перестановки (Ctrl+Alt+D): полоска, за которую тащат окно.
+   Весь документ не принимает события мыши — ручка принимает сама. */
+.tl-handle {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+  margin-bottom: 10px;
+  border: 1px solid rgb(255 255 255 / 30%);
+  border-radius: 999px;
+  background: rgb(20 22 30 / 92%);
+  box-shadow: 0 4px 18px rgb(0 0 0 / 55%);
+  font: 600 13px/1.2 'Segoe UI', system-ui, sans-serif;
+  color: #f2f3f7;
+  cursor: grab;
+}
+
+.tl-handle-grip {
+  letter-spacing: 2px;
+  opacity: 0.55;
+}
+
 .ov-toasts {
   display: flex;
   /* Список идёт свежими вперёд; reverse ставит свежую вниз, к якорю. */

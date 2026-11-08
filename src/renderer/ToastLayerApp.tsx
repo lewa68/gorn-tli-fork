@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 
 import type { ToastSnapshot } from '../main/toastFeed.js';
 import { ToastList, useIncomeToasts, type Toast } from './overlay/toasts.js';
@@ -76,6 +76,7 @@ const preview =
  */
 export function ToastLayerApp() {
   const [snapshot, setSnapshot] = useState<ToastSnapshot | null>(null);
+  const [adjusting, setAdjusting] = useState(false);
   const [prefs, setPrefs] = useState<GornOverlayPrefs>({
     popups: true,
     sound: true,
@@ -140,6 +141,8 @@ export function ToastLayerApp() {
     }
 
     void window.gorn.getSnapshot().then((s) => s && setSnapshot(s));
+    // Режим перестановки: слой принял мышь и ждёт перетаскивания за ручку.
+    const offAdjusting = window.gorn.toasts.onAdjusting(setAdjusting);
     void window.gorn.overlay.getState().then((s) => {
       setPrefs({
         popups: s.popups ?? true,
@@ -157,11 +160,18 @@ export function ToastLayerApp() {
     return () => {
       offSnapshot();
       offPrefs();
+      offAdjusting();
     };
   }, []);
 
   return (
     <div ref={root} className={preview ? 'tl tl-preview' : 'tl'}>
+      {adjusting && (
+        <div className="tl-handle" style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
+          <span className="tl-handle-grip" aria-hidden>⋮⋮</span>
+          <span>Плашки — тащите за полоску · Ctrl+Alt+D — закончить</span>
+        </div>
+      )}
       <ToastList toasts={preview ? PREVIEW : toasts} />
     </div>
   );

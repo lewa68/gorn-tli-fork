@@ -340,9 +340,15 @@ export class Overlay {
   private restorePosition(size: { width: number; height: number }): { x: number; y: number } {
     const saved = this.settings.overlay.placement;
     const displays = screen.getAllDisplays();
-    const display =
-      displays.find((d) => d.id === saved?.displayId) ?? screen.getPrimaryDisplay();
-    const area = display.workArea;
+    // Сначала — по сохранённой координате: Windows меняет id монитора при
+    // апдейте драйвера, и поиск только по id молча уводил окно на основной
+    // экран. Координата переносится между сменами id без потерь.
+    const display = saved
+      ? screen.getDisplayMatching({ x: saved.x, y: saved.y, ...size })
+      : null;
+    const chosen =
+      display ?? displays.find((d) => d.id === saved?.displayId) ?? screen.getPrimaryDisplay();
+    const area = chosen.workArea;
 
     if (!saved) {
       // По умолчанию — правый верхний угол, там меньше всего игрового HUD.

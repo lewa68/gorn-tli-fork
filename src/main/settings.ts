@@ -80,6 +80,13 @@ export interface Settings {
     opacity: number;
     fontScale: number;
     placement: OverlayPlacement | null;
+    /**
+     * Куда игрок поставил слой плашек перетаскиванием (Ctrl+Alt+D).
+     * null — автопозиция: монитор оверлея-панели, по горизонтали центр,
+     * чуть выше середины. Здесь y — НИЖНЯЯ кромка окна (якорь стека),
+     * а не верх: стек плашек растёт вверх от неё.
+     */
+    toastPlacement: OverlayPlacement | null;
     /** Всплывающий доход: «+N ФЕ» при подборе, итог при закрытии карты. */
     popups: boolean;
     /** Звук дорогих находок и рекорда (подбор и итог карты молчат). */
@@ -119,6 +126,7 @@ const DEFAULTS: Settings = {
     opacity: 0.9,
     fontScale: 1,
     placement: null,
+    toastPlacement: null,
     popups: true,
     sound: true,
     volume: 0.5,
