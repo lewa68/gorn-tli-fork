@@ -276,8 +276,10 @@ app.whenReady().then(async () => {
     if (settings?.overlay.hideOutOfGame) overlay?.setGameHidden(!gameFocused);
   };
   gameFocus.onGamePresence = (running) => {
-    // Игры нет — прятать нечего: оверлей ведёт себя как раньше.
-    if (!running && settings?.overlay.hideOutOfGame) overlay?.setGameHidden(false);
+    // Без игры оверлею нечего рисовать — поверх рабочего стола и чужих
+    // окон он только мешает. Запуск игры возвращает его сразу; реальный
+    // фокус подтянется следующим событием (400 мс).
+    if (settings?.overlay.hideOutOfGame) overlay?.setGameHidden(!running);
   };
   gameFocus.start();
   engine = new Engine(app.getPath('userData'), items, settings.itemNames, {
