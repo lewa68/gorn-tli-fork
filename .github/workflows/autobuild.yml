@@ -1,0 +1,103 @@
+# Автосборка форка: следит за оригиналом, обновляет канал релизов.
+#
+# Что происходит по расписанию (и вручную кнопкой Run workflow):
+#   1. Забирает оригинальный репозиторий (upstream = lanqvist/gorn-tli).
+#   2. Если там новые коммиты — сливает их с фиксами форка и пушит сюда.
+#   3. Проверяет типы и гоняет все тесты; при падении — выпуск отменяется.
+#   4. Если версия в package.json новее последнего релиза — собирает
+#      установщик и портативную версию и публикует релиз на этот канал.
+#
+# Установленные приложения обновляются как обычно: сами проверяют этот
+# канал, сами скачивают, сами ставят. Каждая версия = официальная + фиксы.
+#
+# Конфликт слияния (автор поменял те же места, что и форк) останавливает
+# выпуск красным прогоном — его видно во вкладке Actions, чинится руками.
+
+name: Автосборка форка
+
+on:
+  schedule:
+    # Раз в 6 часов (UTC). GitHub может сдвигать время на загруженных раннерах.
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fork-autobuild
+  cancel-in-progress: false
+
+jobs:
+  sync-and-release:
+    runs-on: windows-latest
+    steps:
+      - name: Чекаут
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Слияние с оригиналом
+        id: sync
+        shell: pwsh
+        run: |
+          git config user.name 'fork-autobuild'
+          git config user.email 'actions@users.noreply.github.com'
+          git remote add upstream https://github.com/lanqvist/gorn-tli.git
+          git fetch upstream main
+          $ours = git rev-parse HEAD
+          $theirs = git rev-parse upstream/main
+          if ($ours -eq $theirs) {
+            "changed=false" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+            Write-Host 'upstream не менялся — сливать нечего.'
+            exit 0
+          }
+          git merge upstream/main --no-edit
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host '::error::Конфликт слияния с оригиналом — правки форка и автора задели одни места. Разрешить руками: git fetch upstream main; git merge upstream/main'
+            exit 1
+          }
+          git push origin HEAD:main
+          "changed=true" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Версия
+        id: ver
+        shell: pwsh
+        run: |
+          $v = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          "version=$v" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          $released = ''
+          try { $released = (gh release view "v$v" --json tagName --jq .tagName 2>$null) } catch {}
+          if ($released -eq "v$v") {
+            Write-Host "Релиз v$v уже существует — публикация не нужна."
+            "publish=false" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          } else {
+            "publish=true" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Зависимости
+        if: steps.ver.outputs.publish == 'true'
+        run: npm ci --no-audit --no-fund
+
+      - name: Типы
+        if: steps.ver.outputs.publish == 'true'
+        run: npm run typecheck
+
+      - name: Тесты
+        if: steps.ver.outputs.publish == 'true'
+        run: npx vitest run --no-file-parallelism
+
+      - name: Иконка
+        if: steps.ver.outputs.publish == 'true'
+        run: npm run icon
+
+      - name: Сборка и публикация релиза
+        if: steps.ver.outputs.publish == 'true'
+        shell: pwsh
+        run: npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Готовый релиз, не черновик: установленные приложения должны видеть.
+          GH_DRAFT: 'false'
