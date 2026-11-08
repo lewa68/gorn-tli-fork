@@ -54,10 +54,14 @@ describe.skipIf(FILES.length === 0)('скорость распознавания
       const [, cms] = time(() => calibrate(f));
       calib.push(cms);
     }
+    // Кадры без цепочки — обычное дело (достаточно одного сохранившегося
+    // экрана доски), пустой ряд не должен ронять вывод.
     const line = (name: string, xs: number[]) =>
-      `${name}: n=${xs.length} медиана ${quantile(xs, 0.5).toFixed(1)} мс, p95 ${quantile(xs, 0.95).toFixed(1)} мс, макс ${Math.max(...xs).toFixed(1)} мс`;
+      xs.length
+        ? `${name}: n=${xs.length} медиана ${quantile(xs, 0.5).toFixed(1)} мс, p95 ${quantile(xs, 0.95).toFixed(1)} мс, макс ${Math.max(...xs).toFixed(1)} мс`
+        : `${name}: нет кадров`;
     console.log([line('доска', board), line('цепочка', chain), line('калибровка', calib)].join('\n'));
-    expect(quantile(board, 0.95)).toBeLessThanOrEqual(30);
+    if (board.length) expect(quantile(board, 0.95)).toBeLessThanOrEqual(30);
     if (chain.length) expect(quantile(chain, 0.95)).toBeLessThanOrEqual(50);
     expect(quantile(calib, 0.95)).toBeLessThanOrEqual(300);
   });
