@@ -17,7 +17,18 @@ export interface UpdateState {
   /** Доля загруженного, 0…1. */
   progress: number;
   error: string | null;
+  /** Форк-сборка с локальными фиксами: обновление ставит ассистент. */
+  fork: boolean;
 }
+
+/**
+ * Эта сборка — форк с локальными фиксами (наши коммиты поверх upstream).
+ * Кнопка «Загрузить» ставит официальный билд автора и стирает фиксы,
+ * поэтому в форке она выключена: проверка новой версии остаётся,
+ * а обновление собирает и ставит ассистент (update-gorn.ps1).
+ * При слиянии нового upstream константа продолжает держать защиту.
+ */
+export const FORK_BUILD = true;
 
 /**
  * Автообновление через релизы GitHub.
@@ -68,6 +79,7 @@ export class Updater extends EventEmitter {
     version: null,
     progress: 0,
     error: null,
+    fork: FORK_BUILD,
   };
 
   /** Портативная сборка распаковывается во временную папку и себя не обновляет. */
@@ -75,7 +87,8 @@ export class Updater extends EventEmitter {
 
   constructor() {
     super();
-    this.state.supported = app.isPackaged && !this.isPortable;
+    // Форк не обновляет сам себя официальным билдом — фиксы сотрутся.
+    this.state.supported = app.isPackaged && !this.isPortable && !FORK_BUILD;
 
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = true;

@@ -94,6 +94,22 @@ export function UpdateBanner() {
         <button onClick={() => void window.gorn.update.download()}>
           {tr('Загрузить', 'Download')}
         </button>
+      ) : state.fork ? (
+        <>
+          <span className="muted small">
+            {tr(
+              'Это сборка с локальными фиксами — кнопка «Загрузить» поставила бы официальный билд без них. Попросите ассистента: «обнови Горн».',
+              'This is a fork build with local fixes — the Download button would install the official build without them. Ask the assistant to update it.',
+            )}
+          </span>
+          <button
+            className="update-close"
+            title={tr('Скрыть', 'Dismiss')}
+            onClick={() => setDismissed(true)}
+          >
+            ✕
+          </button>
+        </>
       ) : (
         <>
           <span className="muted small">
