@@ -3,9 +3,11 @@
 # Что происходит по расписанию (и вручную кнопкой Run workflow):
 #   1. Забирает оригинальный репозиторий (upstream = lanqvist/gorn-tli).
 #   2. Если там новые коммиты — сливает их с фиксами форка и пушит сюда.
-#   3. Проверяет типы и гоняет все тесты; при падении — выпуск отменяется.
-#   4. Если версия в package.json новее последнего релиза — собирает
-#      установщик и портативную версию и публикует релиз на этот канал.
+#   3. Считает версию форка: <версия автора>-fork.<номер сборки фиксов>.
+#      Новая версия автора -> fork.1; те же фиксы дорабатываются -> fork.2, fork.3…
+#   4. Если релиз с этой версией уже опубликован — работа закончена.
+#   5. Иначе: проверяет типы, гоняет тесты, собирает установщик и портативную
+#      версию и публикует релиз на этот канал.
 #
 # Установленные приложения обновляются как обычно: сами проверяют этот
 # канал, сами скачивают, сами ставят. Каждая версия = официальная + фиксы.
@@ -60,22 +62,41 @@ jobs:
           git push origin HEAD:main
           "changed=true" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
 
-      - name: Версия
+      - name: Версия форка
         id: ver
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $v = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          "version=$v" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
-          $released = ''
-          try { $released = (gh release view "v$v" --json tagName --jq .tagName 2>$null) } catch {}
-          if ($released -eq "v$v") {
-            Write-Host "Релиз v$v уже существует — публикация не нужна."
+          # База — версия автора из package.json (после merge она чистая).
+          $base = (Get-Content package.json -Raw | ConvertFrom-Json).version -replace '-fork\.\d+$',''
+          # Последний релиз канала: если он на той же базе — номер сборки +1.
+          $n = 1
+          $tag = (gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>$null)
+          if ($tag -match '^v?(.+)-fork\.(\d+)$' -and $Matches[1] -eq $base) { $n = [int]$Matches[2] + 1 }
+          $version = "$base-fork.$n"
+          Write-Host "Версия форка: $version"
+
+          # Вписываем в package.json и коммитим — версия живёт с кодом.
+          # Точечная замена строки версии: ConvertTo-Json перевёл бы
+          # русские строки в \u-последовательности и переформатировал файл.
+          $raw = Get-Content package.json -Raw
+          $raw = $raw -replace '"version":\s*"[^"]*"', "`"version`": `"$version`""
+          Set-Content package.json $raw -Encoding utf8 -NoNewline
+          git config user.name 'fork-autobuild'
+          git config user.email 'actions@users.noreply.github.com'
+          git add package.json
+          git commit -m "Версия форка $version"
+          git push origin HEAD:main
+
+          "version=$version" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          $released = (gh release view "v$version" --json tagName --jq .tagName 2>$null)
+          if ($released -eq "v$version") {
+            Write-Host "Релиз v$version уже существует — публикация не нужна."
             "publish=false" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
           } else {
             "publish=true" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
           }
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Зависимости
         if: steps.ver.outputs.publish == 'true'
