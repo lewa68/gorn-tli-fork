@@ -488,6 +488,8 @@ app.whenReady().then(async () => {
 
   ipcMain.on('toasts:height', (_e, height: number) => toastLayer?.setContentHeight(height));
   ipcMain.on('toasts:active', (_e, active: boolean) => toastLayer?.setActive(active));
+  // Кнопка в настройках: показать рамку всплывашки для перестановки.
+  ipcMain.on('toasts:setAdjusting', (_e, on: boolean) => toastLayer?.setAdjusting(on));
 
   // Панель настроек главного окна.
   ipcMain.handle('app:settings', () => ({

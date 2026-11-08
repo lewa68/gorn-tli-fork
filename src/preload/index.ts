@@ -161,7 +161,9 @@ contextBridge.exposeInMainWorld('gorn', {
     reportHeight: (height: number) => ipcRenderer.send('toasts:height', height),
     /** Есть плашки — окно видно; кончились — главный процесс его прячет. */
     reportActive: (active: boolean) => ipcRenderer.send('toasts:active', active),
-    /** Режим перестановки: окно приняло мышь и рисует ручку перетаскивания. */
+    /** Кнопка в настройках: показать рамку для перестановки мышью. */
+    setAdjusting: (on: boolean) => ipcRenderer.send('toasts:setAdjusting', on),
+    /** Режим перестановки: окно приняло мышь и рисует рамку-держатель. */
     onAdjusting: (callback: (adjusting: boolean) => void) => {
       const handler = (_e: unknown, adjusting: boolean) => callback(adjusting);
       ipcRenderer.on('toasts:adjusting', handler);

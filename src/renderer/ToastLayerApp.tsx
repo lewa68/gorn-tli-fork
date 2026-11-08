@@ -169,7 +169,14 @@ export function ToastLayerApp() {
       {adjusting && (
         <div className="tl-handle" style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
           <span className="tl-handle-grip" aria-hidden>⋮⋮</span>
-          <span>Плашки — тащите за полоску · Ctrl+Alt+D — закончить</span>
+          <span>Всплывающий доход появится здесь — тащите рамку</span>
+          <button
+            className="tl-handle-done"
+            style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
+            onClick={() => window.gorn?.toasts.setAdjusting(false)}
+          >
+            Готово ✓
+          </button>
         </div>
       )}
       <ToastList toasts={preview ? PREVIEW : toasts} />

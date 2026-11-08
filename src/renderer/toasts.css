@@ -54,6 +54,22 @@ body {
   opacity: 0.55;
 }
 
+.tl-handle-done {
+  pointer-events: auto;
+  margin-left: 4px;
+  padding: 4px 12px;
+  border: 1px solid rgb(255 255 255 / 35%);
+  border-radius: 8px;
+  background: rgb(60 130 80 / 90%);
+  color: #fff;
+  font: 600 12px/1.2 'Segoe UI', system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.tl-handle-done:hover {
+  background: rgb(76 160 99 / 95%);
+}
+
 .ov-toasts {
   display: flex;
   /* Список идёт свежими вперёд; reverse ставит свежую вниз, к якорю. */

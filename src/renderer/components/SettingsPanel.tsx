@@ -312,6 +312,12 @@ export function SettingsPanel({
               onChange={(e) => patch({ popups: e.target.checked })}
             />
           </label>
+          <div className="set-row">
+            <span>{tr('Где показывать всплывающий доход', 'Where income popups appear')}</span>
+            <button onClick={() => window.gorn?.toasts.setAdjusting(true)}>
+              {tr('Переставить…', 'Reposition…')}
+            </button>
+          </div>
           <label className="set-row">
             <span>{tr('Золотая плашка', 'Golden popup')}</span>
             <select

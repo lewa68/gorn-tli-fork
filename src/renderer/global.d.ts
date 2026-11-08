@@ -94,6 +94,7 @@ declare global {
     toasts: {
       reportHeight: (height: number) => void;
       reportActive: (active: boolean) => void;
+      setAdjusting: (on: boolean) => void;
       onAdjusting: (cb: (adjusting: boolean) => void) => () => void;
     };
     overlay: GornOverlayApi;

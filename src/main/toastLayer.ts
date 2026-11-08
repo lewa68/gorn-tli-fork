@@ -143,14 +143,15 @@ export class ToastLayer {
   }
 
   /**
-   * Перестановка плашек мышью. Включение принимает клики и показывает
-   * ручку, выключение — запоминает положение и возвращает режим «сквозь».
-   * Возвращает новое состояние (false — слой не открыт, двигать нечего).
+   * Режим перестановки: окно принимает мышь и показывает рамку-держатель.
+   * Включается кнопкой в настройках (или хоткеем), выключается кнопкой
+   * «Готово» на самой рамке. Позиция пишется в настройки на лету.
    */
-  toggleAdjusting(): boolean {
+  setAdjusting(on: boolean): boolean {
     if (!this.isOpen) return false;
-    this.adjusting = !this.adjusting;
-    if (this.adjusting) {
+    if (this.adjusting === on) return on;
+    this.adjusting = on;
+    if (on) {
       this.window!.setIgnoreMouseEvents(false);
       if (!this.window!.isVisible()) this.window!.showInactive();
     } else {
@@ -159,6 +160,11 @@ export class ToastLayer {
     }
     this.send('toasts:adjusting', this.adjusting);
     return this.adjusting;
+  }
+
+  toggleAdjusting(): boolean {
+    if (!this.isOpen) return false;
+    return this.setAdjusting(!this.adjusting);
   }
 
   setContentHeight(height: number): void {
