@@ -271,7 +271,7 @@ app.whenReady().then(async () => {
   // вернулся к игре (или к окнам самого Горна) — показать. Наблюдатель
   // живёт в отдельном процессе и при падении молчит: оверлей остаётся
   // видимым, как до привязки.
-  gameFocus = new GameFocusWatcher();
+  gameFocus = new GameFocusWatcher(app.getPath('userData'));
   gameFocus.onFocus = (gameFocused) => {
     if (settings?.overlay.hideOutOfGame) overlay?.setGameHidden(!gameFocused);
   };
@@ -281,7 +281,11 @@ app.whenReady().then(async () => {
     // фокус подтянется следующим событием (400 мс).
     if (settings?.overlay.hideOutOfGame) overlay?.setGameHidden(!running);
   };
-  gameFocus.start();
+  // Старт наблюдателя отложен на пару секунд: его подъём (PowerShell, при
+  // первом запуске ещё и компиляция) не должен накладываться на самое
+  // начало работы приложения — окно, оверлей, загрузку истории.
+  const watcherTimer = setTimeout(() => gameFocus?.start(), 2000);
+  watcherTimer.unref?.();
   engine = new Engine(app.getPath('userData'), items, settings.itemNames, {
     communityPrices: settings.communityPrices,
     playerFilter: settings.playerFilter,

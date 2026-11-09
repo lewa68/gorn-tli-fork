@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import { join } from 'node:path';
 
 /**
  * Слежение за окном игры: у кого сейчас фокус.
@@ -22,8 +23,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
  * Только при смене состояния, не потоком. Имена процессов игры и Горна
  * захардкожены в C# ниже.
  */
-const OBSERVER_PS = String.raw`
-Add-Type -TypeDefinition @'
+const OBSERVER_CS = String.raw`
 using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -64,15 +64,43 @@ public class FocusWatcher {
     }
   }
 }
-'@ -Language CSharp
+`;
+
+/**
+ * Скрипт наблюдателя. C# компилируется в DLL в userData и переиспользуется:
+ * Add-Type при каждом старте поднимал csc.exe — на старте приложения это
+ * всплеск CPU и внимания антивируса, из-за которого перезапуск Горна
+ * подтормаживал систему. Компиляция теперь редкость: один раз на установку,
+ * DLL переживает обновления приложения.
+ */
+export function observerScript(dllPath: string): string {
+  const dll = dllPath.replace(/'/g, "''");
+  return `
+$dll = '${dll}'
+$src = @'
+${OBSERVER_CS}
+'@
+if (-not (Test-Path -LiteralPath $dll)) {
+  Add-Type -TypeDefinition $src -OutputAssembly $dll -Language CSharp | Out-Null
+}
+try { [Reflection.Assembly]::LoadFrom($dll) | Out-Null }
+catch {
+  # Битая DLL (например, запись оборвалась) — перекомпилировать и забыть.
+  Remove-Item -LiteralPath $dll -Force -ErrorAction SilentlyContinue
+  Add-Type -TypeDefinition $src -OutputAssembly $dll -Language CSharp | Out-Null
+  [Reflection.Assembly]::LoadFrom($dll) | Out-Null
+}
 [FocusWatcher]::Run()
 `;
+}
 
 function encodedCommand(script: string): string {
   return Buffer.from(script, 'utf16le').toString('base64');
 }
 
 export class GameFocusWatcher {
+  /** Куда складывается кэш наблюдателя (компилированная DLL). */
+  constructor(private readonly userData: string) {}
   private proc: ChildProcess | null = null;
   private stopped = false;
   private buffer = '';
@@ -98,11 +126,19 @@ export class GameFocusWatcher {
   }
 
   private spawnWatcher(): void {
+    if (this.stopped) return;
     this.buffer = '';
     try {
       this.proc = spawn(
         'powershell.exe',
-        ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encodedCommand(OBSERVER_PS)],
+        [
+          '-NoProfile',
+          '-NonInteractive',
+          '-ExecutionPolicy',
+          'Bypass',
+          '-EncodedCommand',
+          encodedCommand(observerScript(join(this.userData, 'focus-watcher.dll'))),
+        ],
         { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true },
       );
     } catch {
