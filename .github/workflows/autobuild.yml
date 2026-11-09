@@ -47,11 +47,13 @@ jobs:
           git config user.email 'actions@users.noreply.github.com'
           git remote add upstream https://github.com/lanqvist/gorn-tli.git
           git fetch upstream main
-          $ours = git rev-parse HEAD
-          $theirs = git rev-parse upstream/main
-          if ($ours -eq $theirs) {
+          # Влит ли upstream: сравнивается merge-base с самим upstream,
+          # а не HEAD — HEAD всегда содержит коммиты форка и никогда не
+          # равен upstream.
+          $merged = (git merge-base HEAD upstream/main) -eq (git rev-parse upstream/main)
+          if ($merged) {
             "changed=false" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
-            Write-Host 'upstream не менялся — сливать нечего.'
+            Write-Host 'upstream уже влит — сливать нечего.'
             exit 0
           }
           git merge upstream/main --no-edit
@@ -59,7 +61,7 @@ jobs:
             Write-Host '::error::Конфликт слияния с оригиналом — правки форка и автора задели одни места. Разрешить руками: git fetch upstream main; git merge upstream/main'
             exit 1
           }
-          git push origin HEAD:main
+          git push origin HEAD
           "changed=true" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Версия форка
@@ -87,7 +89,7 @@ jobs:
           git config user.email 'actions@users.noreply.github.com'
           git add package.json
           git commit -m "Версия форка $version"
-          git push origin HEAD:main
+          git push origin HEAD
 
           "version=$version" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
           $released = (gh release view "v$version" --json tagName --jq .tagName 2>$null)
