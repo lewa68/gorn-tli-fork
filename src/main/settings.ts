@@ -68,6 +68,11 @@ export interface Settings {
   excludedItems: number[];
   /** Порог «мелочи» в ФЕ: дешевле него строки в списках добычи свёрнуты. 0 — показывать всё. */
   minDropFe: number;
+  /**
+   * Переносить длинные названия локаций на новую строку во вкладке
+   * «Сессия». Выключено — обрезка с многоточием, таблица остаётся ровной.
+   */
+  wrapLocationNames: boolean;
   /** Закрытие окна сворачивает в трей: трекер живёт фоном часами. */
   closeToTray: boolean;
   /** Запуск вместе с Windows: трекер полезен, только если уже запущен. */
@@ -122,6 +127,7 @@ const DEFAULTS: Settings = {
   allSeasons: false,
   excludedItems: [],
   minDropFe: 0,
+  wrapLocationNames: true,
   closeToTray: false,
   autoStart: false,
   overlay: {
@@ -199,6 +205,10 @@ export class SettingsStore {
           typeof raw.settings.minDropFe === 'number' && raw.settings.minDropFe >= 0
             ? raw.settings.minDropFe
             : DEFAULTS.minDropFe,
+        wrapLocationNames:
+          typeof raw.settings.wrapLocationNames === 'boolean'
+            ? raw.settings.wrapLocationNames
+            : DEFAULTS.wrapLocationNames,
         closeToTray: raw.settings.closeToTray ?? DEFAULTS.closeToTray,
         autoStart: raw.settings.autoStart ?? DEFAULTS.autoStart,
         overlay: {
@@ -305,8 +315,18 @@ export class SettingsStore {
     return this.data.minDropFe;
   }
 
+  get wrapLocationNames(): boolean {
+    return this.data.wrapLocationNames;
+  }
+
   setMinDropFe(value: number): void {
     this.data.minDropFe = Math.max(0, value);
+    this.save();
+  }
+
+  /** Перенос длинных названий локаций во вкладке «Сессия». */
+  setWrapLocationNames(value: boolean): void {
+    this.data.wrapLocationNames = value;
     this.save();
   }
 

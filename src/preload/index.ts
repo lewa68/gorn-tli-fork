@@ -44,6 +44,10 @@ contextBridge.exposeInMainWorld('gorn', {
   /** Порог «мелочи» в списках добычи, ФЕ. */
   setMinDropFe: (value: number) => ipcRenderer.invoke('settings:setMinDropFe', value),
 
+  /** Перенос длинных названий локаций во вкладке «Сессия». */
+  setWrapLocationNames: (value: boolean) =>
+    ipcRenderer.invoke('settings:setWrapLocationNames', value),
+
   /** Язык интерфейса. При смене окна перезагружаются сами. */
   getUiLanguage: () => ipcRenderer.invoke('settings:uiLanguage'),
   setUiLanguage: (language: string) => ipcRenderer.invoke('settings:setUiLanguage', language),

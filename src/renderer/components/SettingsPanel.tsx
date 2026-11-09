@@ -108,11 +108,14 @@ function UiLanguageSwitch() {
 export function SettingsPanel({
   onClose,
   minDropFe,
+  wrapLocationNames,
   children,
 }: {
   onClose: () => void;
   /** Порог «мелочи» живёт в срезе: меняется кнопкой и сразу видна в списках. */
   minDropFe: number;
+  /** Перенос длинных названий локаций (вкладка «Сессия»). */
+  wrapLocationNames: boolean;
   /** Низ панели — самодиагностика: она для тех, кто настраивает. */
   children?: ReactNode;
 }) {
@@ -418,6 +421,25 @@ export function SettingsPanel({
               'Overlay not showing in game? Switch the game to borderless mode — nothing can draw over exclusive fullscreen.',
             )}
           </p>
+        </section>
+
+        <section className="set-section">
+          <h3>{tr('Главное окно', 'Main window')}</h3>
+          <label className="set-row">
+            <span
+              title={tr(
+                'Во вкладке «Сессия» длинные названия локаций переносятся на новую строку. Выключено — обрезка с многоточием, колонки ровнее.',
+                'In the “Session” tab long location names wrap to a new line. Off — clipped with an ellipsis, columns stay even.',
+              )}
+            >
+              {tr('Переносить длинные названия локаций', 'Wrap long location names')}
+            </span>
+            <input
+              type="checkbox"
+              checked={wrapLocationNames}
+              onChange={(e) => void window.gorn?.setWrapLocationNames(e.target.checked)}
+            />
+          </label>
         </section>
 
         <section className="set-section">

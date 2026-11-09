@@ -348,6 +348,7 @@ export const demoSnapshot: Snapshot = {
     ],
   },
   minDropFe: 0,
+  wrapLocationNames: true,
   missing: [
     {
       configBaseId: 400033,

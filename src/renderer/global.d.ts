@@ -76,6 +76,7 @@ declare global {
       setExcluded: (configBaseId: number, excluded: boolean) => Promise<number[]>;
     };
     setMinDropFe: (value: number) => Promise<number>;
+    setWrapLocationNames: (value: boolean) => Promise<boolean>;
     getUiLanguage: () => Promise<UiLanguage>;
     setUiLanguage: (language: UiLanguage) => Promise<UiLanguage>;
     onUiLanguage: (cb: (language: UiLanguage) => void) => () => void;

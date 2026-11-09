@@ -116,7 +116,11 @@ export function App() {
         <UpdateBanner />
         <Header snapshot={snapshot} onOpenSettings={() => setSettingsOpen(true)} />
         {settingsOpen && (
-          <SettingsPanel minDropFe={snapshot.minDropFe} onClose={() => setSettingsOpen(false)}>
+          <SettingsPanel
+            minDropFe={snapshot.minDropFe}
+            wrapLocationNames={snapshot.wrapLocationNames}
+            onClose={() => setSettingsOpen(false)}
+          >
             {/* Диагностика — для тех, кто настраивает, а не для каждого взгляда. */}
             <Diagnostics snapshot={snapshot} />
           </SettingsPanel>

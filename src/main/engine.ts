@@ -255,6 +255,8 @@ export interface Snapshot {
   bag: BagView | null;
   /** Порог «мелочи» в списках добычи, ФЕ. 0 — показывать всё. */
   minDropFe: number;
+  /** Переносить длинные названия локаций (вкладка «Сессия»). */
+  wrapLocationNames: boolean;
   /** Предметы без цены, по влиянию на оценку. */
   missing: MissingPriceView[];
   /** Самые дорогие находки сессии, дорогие первыми, до трёх. */
@@ -392,6 +394,8 @@ export class Engine extends EventEmitter {
   private excluded = new Set<ConfigBaseId>();
   /** Порог «мелочи» для списков добычи — только отображение. */
   private minDropFe = 0;
+  /** Перенос длинных названий локаций во вкладке «Сессия». */
+  private wrapLocationNames = true;
   private lastActivityAt = 0;
   /**
    * Момент последней строки лога. Игра пишет лог, пока жива, — это и есть
@@ -428,6 +432,8 @@ export class Engine extends EventEmitter {
       allSeasons?: boolean;
       excludedItems?: number[];
       minDropFe?: number;
+      /** Перенос длинных названий локаций во вкладке «Сессия». */
+      wrapLocationNames?: boolean;
       /** Справочник названий карт (data/maps.json). Без него — имена ассетов. */
       maps?: MapCatalogue | null;
     } = {},
@@ -451,6 +457,7 @@ export class Engine extends EventEmitter {
     this.allSeasons = options.allSeasons ?? false;
     this.excluded = new Set(options.excludedItems ?? []);
     this.minDropFe = options.minDropFe ?? 0;
+    this.wrapLocationNames = options.wrapLocationNames ?? true;
     this.maps = options.maps ? new MapNames(options.maps) : MapNames.empty();
     this.dataDir = dataDir;
     this.community = new CommunityPriceFeed(dataDir);
@@ -1245,6 +1252,12 @@ export class Engine extends EventEmitter {
     this.emit('snapshot', this.buildSnapshot());
   }
 
+  /** Перенос длинных названий локаций во вкладке «Сессия». */
+  setWrapLocationNames(value: boolean): void {
+    this.wrapLocationNames = value;
+    this.emit('snapshot', this.buildSnapshot());
+  }
+
   /** Сумка по последнему известному состоянию слотов. */
   private bagView(): BagView | null {
     const contents = this.inventory.snapshot();
@@ -1517,6 +1530,7 @@ export class Engine extends EventEmitter {
       sessions: agg.sessions,
       bag: this.bagView(),
       minDropFe: this.minDropFe,
+      wrapLocationNames: this.wrapLocationNames,
       // «Пробить цену» — только про текущий сезон: рынок прошлого закрыт,
       // и пробить там уже нечего.
       //

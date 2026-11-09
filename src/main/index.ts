@@ -306,6 +306,7 @@ app.whenReady().then(async () => {
     allSeasons: settings.allSeasons,
     excludedItems: settings.excludedItems,
     minDropFe: settings.minDropFe,
+    wrapLocationNames: settings.wrapLocationNames,
     maps: loadMaps(),
   });
 
@@ -409,6 +410,13 @@ app.whenReady().then(async () => {
     settings?.setMinDropFe(v);
     engine?.setMinDropFe(v);
     return v;
+  });
+
+  // Перенос длинных названий локаций во вкладке «Сессия».
+  ipcMain.handle('settings:setWrapLocationNames', (_e, value: boolean) => {
+    settings?.setWrapLocationNames(value);
+    engine?.setWrapLocationNames(value);
+    return value;
   });
 
   // Чьи забеги показывать: персонаж (null — все) и все ли сезоны.

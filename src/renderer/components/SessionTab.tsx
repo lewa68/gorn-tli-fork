@@ -138,9 +138,11 @@ export function SessionTab({ snapshot }: { snapshot: Snapshot }) {
                     className={`link-button session-loc${location === l.name ? ' on' : ''}`}
                     onClick={() => setLocation(location === l.name ? null : l.name)}
                   >
-                    {l.name}
+                    <span className={`session-loc-name${snapshot.wrapLocationNames ? ' wrap' : ''}`}>
+                      {l.name}
+                    </span>
                   </button>
-                  <span className="muted small">
+                  <span className="muted small session-loc-meta">
                     {pluralize(l.runs, RUN)} · {tr('среднее', 'avg')} {duration(l.avgActiveMs)}
                   </span>
                   <Fe value={l.netFe} />
