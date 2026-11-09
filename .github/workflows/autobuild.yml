@@ -91,14 +91,13 @@ jobs:
             exit 0
           }
 
-          # Правки самого пайплайна (.github/**) приложение не меняют —
-          # новая сборка на них не нужна. Выпускаем только если менялось
-          # что-то кроме workflow-файлов.
+          # Правки самого пайплайна (.github/**) и документации (README,
+          # CHANGELOG) приложение не меняют — новая сборка на них не нужна.
           if ("$releasedSha" -ne "" -and "$releasedSha" -ne "$head") {
             $appChanged = git diff --name-only "$releasedSha..$head" |
-              Where-Object { $_ -notmatch '^\.github/' }
+              Where-Object { $_ -notmatch '^\.github/' -and $_ -notmatch '^(README|CHANGELOG)' }
             if (-not $appChanged) {
-              Write-Host "После релиза менялись только файлы пайплайна — публикации не требуется."
+              Write-Host "После релиза менялись только пайплайн и документация — публикации не требуется."
               "version=$current" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
               "publish=false" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
               exit 0
@@ -214,21 +213,14 @@ jobs:
           GH_REPO: ${{ github.repository }}
           VERSION: ${{ steps.ver.outputs.version }}
         run: |
-          # Заметки — только те коммиты, что меняли само приложение:
-          # правки одного пайплайна (.github/**) игроку не нужны, как и
-          # служебные коммиты версии.
-          $subjects = @()
-          foreach ($line in @(git log --format='%H|%s' upstream/main..HEAD)) {
-            if (-not $line) { continue }
-            $parts = $line -split '\|', 2
-            $sha = $parts[0]
-            $subject = $parts[1]
-            if ($subject -match 'Версия форка') { continue }
-            $files = @(git diff-tree --no-commit-id --name-only -r $sha)
-            $appFiles = @($files | Where-Object { $_ -notmatch '^\.github/' })
-            if ($appFiles.Count -gt 0) { $subjects += $subject }
-          }
-          @("Отличия от официальной версии:", "") + $subjects | Set-Content release-notes.txt -Encoding utf8
+          # Заметки — из CHANGELOG-fork.md: секция «## <версия>». Пишется
+          # для игрока, а не git log: внутренние правки пайплайна игроку
+          # не говорят ничего. Секции нет — берём весь файл: заметки
+          # не должны блокировать выпуск.
+          $changelog = Get-Content CHANGELOG-fork.md -Raw
+          $m = [regex]::Match($changelog, "(?s)## $([regex]::Escape($env:VERSION))\s*\r?\n(.*?)(?=\r?\n## |\z)")
+          $notes = if ($m.Success) { $m.Groups[1].Value } else { $changelog }
+          $notes.Trim() | Set-Content release-notes.txt -Encoding utf8
           # Сразу после публикации API иногда отвечает 404 на свежий релиз —
           # даём ему догнаться и пробуем несколько раз.
           $ok = $false
