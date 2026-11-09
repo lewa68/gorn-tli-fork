@@ -164,6 +164,16 @@ jobs:
           # electron-builder упаковывает готовый dist: main/preload собирает
           # esbuild (build-electron.mjs), renderer — vite build.
           npm run build
+          # Сборка упала — шаг обязан упасть: electron-builder иначе молча
+          # упакует неполный dist (без renderer) и выкатит чёрный экран.
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::npm run build упал (код $LASTEXITCODE) — дальше не идём."
+            exit 1
+          }
+          if (-not (Test-Path 'dist/renderer/index.html')) {
+            Write-Host "::error::в dist нет renderer/index.html — интерфейс не собран."
+            exit 1
+          }
           # Раздача инструментов с GitHub бывает лежит (504) — и electron-
           # builder умеет умирать на этом тихо, с кодом 0. Пробуем до трёх
           # раз: главный артефакт обязан существовать после сборки.

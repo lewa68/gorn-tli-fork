@@ -1509,8 +1509,6 @@ button {
   border-color: var(--muted);
 }
 
-.set-disabled {
-
 .set-row select {
   background: var(--surface-2);
   border: 1px solid var(--line);
