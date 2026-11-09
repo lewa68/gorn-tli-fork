@@ -131,7 +131,11 @@ jobs:
       - name: Сборка и публикация релиза
         if: steps.ver.outputs.publish == 'true'
         shell: pwsh
-        run: npx electron-builder --win --publish always
+        run: |
+          # electron-builder упаковывает готовый dist: main/preload собирает
+          # esbuild (build-electron.mjs), renderer — vite build.
+          npm run build
+          npx electron-builder --win --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_DRAFT: 'false'
