@@ -70,43 +70,44 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          UPSTREAM_CHANGED: ${{ steps.sync.outputs.changed }}
         run: |
           $pkg = Get-Content package.json -Raw
           $current = [regex]::Match($pkg, '"version":\s*"([^"]+)"').Groups[1].Value
           $released = (gh api repos/$env:GH_REPO/releases/latest --jq .tag_name 2>$null)
+          $base = $current -replace '-fork\.\d+$', ''
 
-          if ($env:UPSTREAM_CHANGED -ne 'true') {
-            # upstream не приносил ничего нового: версия из package.json
-            # уже правильная (её поставил ассистент или прошлый прогон),
-            # пересчитывать нечего. Публикуем, только если она ещё не вышла.
+          # Выпущена ли уже именно эта сборка: версия та же и HEAD — это
+          # коммит релизного тега. Новый фикс-коммит или влитый upstream
+          # сдвигают HEAD — номер сборки растёт и в том, и в другом случае.
+          $head = git rev-parse HEAD
+          $releasedSha = if ($released) { (git rev-parse "$released^{commit}" 2>$null) } else { $null }
+          if ($released -eq "v$current" -and "$releasedSha" -eq "$head") {
+            Write-Host "Релиз v$current уже опубликован — публикации не требуется."
             "version=$current" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
-            if ($released -eq "v$current") {
-              Write-Host "Релиз v$current уже опубликован — публикации не требуется."
-              "publish=false" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
-            } else {
-              Write-Host "Релиза v$current ещё нет — публикуем как есть."
-              "publish=true" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
-            }
+            "publish=false" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
             exit 0
           }
 
-          # Влит новый upstream: версия = <версия автора>-fork.<номер сборки>.
-          $base = $current -replace '-fork\.\d+$', ''
+          # Номер сборки: +1 к последнему релизу той же базы; новая база
+          # (автор выпустил новую версию) — снова fork.1. Версию, правленную
+          # в package.json руками на больший номер, уважаем.
           $n = 1
           if ($released -match '^v?(.+)-fork\.(\d+)$' -and $Matches[1] -eq $base) { $n = [int]$Matches[2] + 1 }
+          if ($current -match '^v?(.+)-fork\.(\d+)$' -and $Matches[1] -eq $base) { $n = [Math]::Max($n, [int]$Matches[2]) }
           $version = "$base-fork.$n"
           Write-Host "Версия форка: $version"
 
           # Точечная замена строки версии: ConvertTo-Json перевёл бы
           # русские строки в \u-последовательности и переформатировал файл.
-          $pkg = $pkg -replace '"version":\s*"[^"]*"', "`"version`": `"$version`""
-          Set-Content package.json $pkg -Encoding utf8 -NoNewline
-          git config user.name 'fork-autobuild'
-          git config user.email 'actions@users.noreply.github.com'
-          git add package.json
-          git commit -m "Версия форка $version"
-          git push origin HEAD
+          if ($version -ne $current) {
+            $pkg = $pkg -replace '"version":\s*"[^"]*"', "`"version`": `"$version`""
+            Set-Content package.json $pkg -Encoding utf8 -NoNewline
+            git config user.name 'fork-autobuild'
+            git config user.email 'actions@users.noreply.github.com'
+            git add package.json
+            git commit -m "Версия форка $version"
+            git push origin HEAD
+          }
 
           "version=$version" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
           "publish=true" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
