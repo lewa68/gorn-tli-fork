@@ -232,6 +232,8 @@ export interface Snapshot {
     /** Итог прошлой сессии — чтобы сброс не выглядел потерей цифр. */
     previous: { netFe: number; inMapMs: number; runs: number } | null;
   };
+  /** Забеги текущей сессии, свежие сверху, включая открытый. */
+  sessionRuns: RunView[];
   /** Норма для сравнений — медиана последних забегов, а не рекорд. */
   norm: number;
   /**
@@ -1459,6 +1461,10 @@ export class Engine extends EventEmitter {
       playerFilter: this.playerFilter,
       current: openFarming ? this.toView(openFarming) : null,
       recent: agg.recent,
+      // Вкладка «Сессия»: закрытые забеги сессии плюс открытый поверх.
+      sessionRuns: openFarming
+        ? [this.toView(openFarming), ...agg.sessionRuns.filter((r) => r.key !== runKey(openFarming))]
+        : agg.sessionRuns,
       rate: agg.rate,
       feRate: agg.feRate,
       liveRate: perHour(valueFe - costFe - prisonFe, inMapMs),
@@ -1621,6 +1627,10 @@ export class Engine extends EventEmitter {
         feGained: sessionFarming.reduce((a, r) => a + runFe(r), 0),
         top: topDrops(sessionRated, pricing),
       },
+      sessionRuns: sessionFarming
+        .slice()
+        .sort((a, b) => b.startedAt - a.startedAt)
+        .map((r) => this.toView(r)),
     };
     this.aggregatesCache = aggregates;
     return aggregates;
@@ -1816,6 +1826,8 @@ interface HistoryAggregates {
     feGained: number;
     top: TopDrop[];
   };
+  /** Закрытые забеги текущей сессии для вкладки «Сессия». */
+  sessionRuns: RunView[];
 }
 
 /** Цены прошлого сезона: свои пробивки и база сообщества того сезона. */

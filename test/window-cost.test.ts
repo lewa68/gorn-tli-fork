@@ -155,6 +155,7 @@ describe('вкладки главного окна', () => {
     const app = src('App.tsx');
     expect(app).toMatch(/\{tab === 'runs' && <RecentRuns/);
     expect(app).toMatch(/\{tab === 'history' && <History/);
-    expect(app).toMatch(/\{tab === 'session' && \(/);
+    expect(app).toMatch(/\{tab === 'session' && <SessionTab/);
+    expect(app).toMatch(/\{tab === 'location' && \(/);
   });
 });

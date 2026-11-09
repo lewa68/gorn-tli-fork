@@ -14,6 +14,7 @@ import { MissingPrices } from './components/MissingPrices.js';
 import { Prices } from './components/Prices.js';
 import { RecentRuns } from './components/RecentRuns.js';
 import { SessionRecords } from './components/SessionRecords.js';
+import { SessionTab } from './components/SessionTab.js';
 import { SettingsPanel } from './components/SettingsPanel.js';
 import { Sidebar } from './components/Sidebar.js';
 import { Strategies } from './components/Strategies.js';
@@ -25,10 +26,11 @@ import { TiersContext, useTiers } from './tiers.js';
  * и истории приходилось листать. Сводка остаётся на виду, остальное —
  * в одном щелчке. Скрытая вкладка не рисуется вовсе.
  */
-type Tab = 'session' | 'runs' | 'maps' | 'prices' | 'history';
+type Tab = 'session' | 'location' | 'runs' | 'maps' | 'prices' | 'history';
 
 const TABS: Array<[Tab, () => string]> = [
   ['session', () => tr('Сессия', 'Session')],
+  ['location', () => tr('Локация', 'Location')],
   ['runs', () => tr('Забеги', 'Runs')],
   ['maps', () => tr('Карты и стратегии', 'Maps & strategies')],
   ['prices', () => tr('Цены', 'Prices')],
@@ -144,7 +146,8 @@ export function App() {
           ))}
         </nav>
 
-        {tab === 'session' && (
+        {tab === 'session' && <SessionTab snapshot={snapshot} />}
+        {tab === 'location' && (
           <div className="columns">
             <CurrentRun snapshot={snapshot} />
             <Sidebar snapshot={snapshot} />

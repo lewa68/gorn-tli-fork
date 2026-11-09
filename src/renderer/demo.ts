@@ -71,6 +71,8 @@ export const demoSnapshot: Snapshot = {
     seasonId: 1601,
     seasonName: 'SS14 Tartarus',
   },
+  // Вкладка «Сессия»: свежие демо-забеги сессии.
+  sessionRuns: [],
   session: {
     startedAt: now - 3 * 3_600_000,
     previous: { netFe: 3240, inMapMs: 2 * 3_600_000 + 10 * 60_000, runs: 14 },
@@ -439,3 +441,7 @@ export const demoPrices: PriceRow[] = [
     `${CDN}/Item/128/UI_Item_chuhuolingshaV3_Icon_128.webp`),
   priceRow(261010, 'Неизвестный предмет', null, null, [], 1),
 ];
+
+// Вкладка «Сессия» в демо живёт теми же забегами, что и недавние:
+// свежая треть истории умещается в три часа демо-сессии.
+demoSnapshot.sessionRuns = demoSnapshot.recent.slice(0, 8);
