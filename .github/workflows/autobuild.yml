@@ -131,14 +131,21 @@ jobs:
       - name: Сборка и публикация релиза
         if: steps.ver.outputs.publish == 'true'
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.ver.outputs.version }}
         run: |
           # electron-builder упаковывает готовый dist: main/preload собирает
           # esbuild (build-electron.mjs), renderer — vite build.
           npm run build
           npx electron-builder --win --publish always
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_DRAFT: 'false'
+          # electron-builder может тихо умереть на загрузке ассетов, оставив
+          # draft-релиз с неполным набором файлов. Публикацию проверяем сами.
+          $rel = gh release view "v$env:VERSION" --json isDraft -q .isDraft 2>$null
+          if ($rel -ne 'false') {
+            Write-Host "::error::Релиз v$env:VERSION не опубликован (gh видит: '$rel'). Скорее всего загрузка ассетов оборвалась — перезапусти прогон."
+            exit 1
+          }
 
       - name: Заметки релиза — отличия от официальной версии
         if: steps.ver.outputs.publish == 'true'
