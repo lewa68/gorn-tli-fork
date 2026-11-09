@@ -74,6 +74,9 @@ jobs:
           $pkg = Get-Content package.json -Raw
           $current = [regex]::Match($pkg, '"version":\s*"([^"]+)"').Groups[1].Value
           $released = (gh api repos/$env:GH_REPO/releases/latest --jq .tag_name 2>$null)
+          # Тег последнего релиза нужен для сравнения с HEAD; чекаут мог его
+          # не принести (тег свежий) — тянем явно и тихо.
+          if ($released) { git fetch origin "refs/tags/${released}:refs/tags/${released}" 2>$null | Out-Null }
           $base = $current -replace '-fork\.\d+$', ''
 
           # Выпущена ли уже именно эта сборка: версия та же и HEAD — это
@@ -176,9 +179,19 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           VERSION: ${{ steps.ver.outputs.version }}
         run: |
           $diff = git log --oneline --no-decorate upstream/main..HEAD |
             Where-Object { $_ -notmatch 'Версия форка' }
           @("Отличия от официальной версии:", "") + $diff | Set-Content release-notes.txt -Encoding utf8
-          gh release edit "v$env:VERSION" --notes-file release-notes.txt
+          # Сразу после публикации API иногда отвечает 404 на свежий релиз —
+          # даём ему догнаться и пробуем несколько раз.
+          $ok = $false
+          foreach ($i in 1..3) {
+            gh release edit "v$env:VERSION" --repo $env:GH_REPO --notes-file release-notes.txt
+            if ($LASTEXITCODE -eq 0) { $ok = $true; break }
+            Write-Host "Заметки не применились (попытка $i) — пауза и повтор."
+            Start-Sleep -Seconds 20
+          }
+          if (-not $ok) { Write-Host '::error::Не удалось обновить заметки релиза'; exit 1 }
