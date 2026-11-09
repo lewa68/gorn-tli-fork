@@ -214,9 +214,21 @@ jobs:
           GH_REPO: ${{ github.repository }}
           VERSION: ${{ steps.ver.outputs.version }}
         run: |
-          $diff = git log --oneline --no-decorate upstream/main..HEAD |
-            Where-Object { $_ -notmatch 'Версия форка' }
-          @("Отличия от официальной версии:", "") + $diff | Set-Content release-notes.txt -Encoding utf8
+          # Заметки — только те коммиты, что меняли само приложение:
+          # правки одного пайплайна (.github/**) игроку не нужны, как и
+          # служебные коммиты версии.
+          $subjects = @()
+          foreach ($line in @(git log --format='%H|%s' upstream/main..HEAD)) {
+            if (-not $line) { continue }
+            $parts = $line -split '\|', 2
+            $sha = $parts[0]
+            $subject = $parts[1]
+            if ($subject -match 'Версия форка') { continue }
+            $files = @(git diff-tree --no-commit-id --name-only -r $sha)
+            $appFiles = @($files | Where-Object { $_ -notmatch '^\.github/' })
+            if ($appFiles.Count -gt 0) { $subjects += $subject }
+          }
+          @("Отличия от официальной версии:", "") + $subjects | Set-Content release-notes.txt -Encoding utf8
           # Сразу после публикации API иногда отвечает 404 на свежий релиз —
           # даём ему догнаться и пробуем несколько раз.
           $ok = $false
