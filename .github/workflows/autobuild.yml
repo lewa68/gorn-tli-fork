@@ -128,6 +128,15 @@ jobs:
           "version=$version" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
           "publish=true" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
 
+      - name: Кэш инструментов electron-builder
+        # electron-builder качает nsis/winCodeSign с того же файлового
+        # хостинга GitHub, что и релизы; когда он лежит (504), сборка
+        # падает. Кэш прогревается первым успешным прогоном.
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\electron-builder\Cache
+          key: electron-builder-win-v1
+
       - name: Зависимости
         if: steps.ver.outputs.publish == 'true'
         run: npm ci --no-audit --no-fund
@@ -155,7 +164,15 @@ jobs:
           # electron-builder упаковывает готовый dist: main/preload собирает
           # esbuild (build-electron.mjs), renderer — vite build.
           npm run build
-          npx electron-builder --win --publish always
+          # Раздача инструментов с GitHub бывает лежит (504) — и electron-
+          # builder умеет умирать на этом тихо, с кодом 0. Пробуем до трёх
+          # раз: главный артефакт обязан существовать после сборки.
+          foreach ($i in 1..3) {
+            npx electron-builder --win --publish always
+            if (Test-Path "release/Gorn-$env:VERSION-setup.exe") { break }
+            Write-Host "::warning::Сборка не дала артефактов (попытка $i) — пауза две минуты и повтор."
+            Start-Sleep -Seconds 120
+          }
 
           # Сборка publish-ит electron-builder'ом, но финальное состояние
           # контролируем сами: с несколькими таргетами он способен оставить
