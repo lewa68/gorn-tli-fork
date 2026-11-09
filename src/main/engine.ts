@@ -393,6 +393,14 @@ export class Engine extends EventEmitter {
   /** Порог «мелочи» для списков добычи — только отображение. */
   private minDropFe = 0;
   private lastActivityAt = 0;
+  /**
+   * Момент последней строки лога. Игра пишет лог, пока жива, — это и есть
+   * датчик её присутствия: тишина дольше пары минут значит «не запущена».
+   * Дешевле любого опроса процессов.
+   */
+  get lastLogActivityAt(): number {
+    return this.lastActivityAt;
+  }
   /** Метка времени последнего разобранного события — по часам лога. */
   private lastEventTs = 0;
   private community: CommunityPriceFeed;
@@ -728,6 +736,9 @@ export class Engine extends EventEmitter {
 
     for (const raw of lines) {
       this.diagnostics.linesTotal++;
+      // Любая строка лога — признак живой игры: датчик присутствия не
+      // должен зависеть от того, распознаётся конкретная строка или нет.
+      this.lastActivityAt = Date.now();
       const m = /\+SeasonId \[(\d+)\]/.exec(raw);
       if (m) {
         const season = Number(m[1]);
@@ -744,7 +755,6 @@ export class Engine extends EventEmitter {
       if (!ev) continue;
       this.diagnostics.linesMatched++;
       changed = true;
-      this.lastActivityAt = Date.now();
       if ('ts' in ev && ev.ts > 0) this.lastEventTs = ev.ts;
 
       switch (ev.kind) {

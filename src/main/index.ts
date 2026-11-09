@@ -267,20 +267,31 @@ app.whenReady().then(async () => {
   toastLayer = new ToastLayer(settings);
   panel = new Panel(() => settings?.overlay.fontScale ?? 1);
 
-  // Привязка оверлея к окну игры: фокус ушёл к чужому окну — спрятать,
-  // вернулся к игре (или к окнам самого Горна) — показать. Наблюдатель
-  // живёт в отдельном процессе и при падении молчит: оверлей остаётся
-  // видимым, как до привязки.
+  // Привязка оверлея к игре. Два независимых датчика:
+  //   1. Фокус — резидентный наблюдатель (дешёвый GetForegroundWindow).
+  //   2. Присутствие игры — сам лог: пока игра пишет, она жива. Тишина
+  //      дольше порога — игра закрыта (или в меню, где оверлей и не нужен).
+  // Оверлей видно только когда оба датчика говорят «игра идёт».
+  const GAME_PRESENCE_TIMEOUT_MS = 120_000;
+  let gameFocused = true;
+  let gameAlive = false;
+  const applyOverlayVisibility = () => {
+    if (!settings?.overlay.hideOutOfGame) return;
+    overlay?.setGameHidden(!gameAlive || !gameFocused);
+  };
   gameFocus = new GameFocusWatcher(app.getPath('userData'));
-  gameFocus.onFocus = (gameFocused) => {
-    if (settings?.overlay.hideOutOfGame) overlay?.setGameHidden(!gameFocused);
+  gameFocus.onFocus = (focused) => {
+    gameFocused = focused;
+    applyOverlayVisibility();
   };
-  gameFocus.onGamePresence = (running) => {
-    // Без игры оверлею нечего рисовать — поверх рабочего стола и чужих
-    // окон он только мешает. Запуск игры возвращает его сразу; реальный
-    // фокус подтянется следующим событием (400 мс).
-    if (settings?.overlay.hideOutOfGame) overlay?.setGameHidden(!running);
-  };
+  const presenceTimer = setInterval(() => {
+    const alive = engine !== null && Date.now() - engine.lastLogActivityAt < GAME_PRESENCE_TIMEOUT_MS;
+    if (alive !== gameAlive) {
+      gameAlive = alive;
+      applyOverlayVisibility();
+    }
+  }, 5000);
+  presenceTimer.unref?.();
   // Старт наблюдателя отложен на пару секунд: его подъём (PowerShell, при
   // первом запуске ещё и компиляция) не должен накладываться на самое
   // начало работы приложения — окно, оверлей, загрузку истории.

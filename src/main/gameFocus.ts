@@ -17,11 +17,11 @@ import { join } from 'node:path';
  */
 
 /**
- * C#-наблюдатель. Пишает в stdout строки:
- *   focus / blur   — фокус у игры (или своих окон) / у чужих
- *   game-open / game-closed — игра появилась/исчезла в процессах
- * Только при смене состояния, не потоком. Имена процессов игры и Горна
- * захардкожены в C# ниже.
+ * C#-наблюдатель фокуса. Пишает в stdout строки при смене состояния:
+ *   focus / blur — фокус у игры (или своих окон) / у чужого окна
+ * Никакого опроса процессов: наличие игры определяет движок по логу
+ * (игра пишет лог, пока жива), здесь — только дешёвый GetForegroundWindow
+ * с паузой в две секунды. Имена процессов игры и Горна захардкожены ниже.
  */
 const OBSERVER_CS = String.raw`
 using System;
@@ -33,34 +33,21 @@ public class FocusWatcher {
   static bool IsGame(string n) { return n == "torchlight_infinite"; }
   // Установленный Горн называется кириллицей (\u0433\u043e\u0440\u043d = «горн»).
   static bool IsSelf(string n) { return n == "\u0433\u043e\u0440\u043d" || n == "gorn" || n.StartsWith("electron"); }
-  static bool GameRuns() {
-    return Process.GetProcessesByName("torchlight_infinite").Length > 0;
-  }
   // Add-Type не экспортирует метод Main (считает точкой входа), поэтому Run.
   public static void Run() {
-    bool game = GameRuns();
-    Console.Out.WriteLine(game ? "game-open" : "game-closed");
-    Console.Out.Flush();
     string last = "";
     while (true) {
       IntPtr h = GetForegroundWindow();
       uint pid; GetWindowThreadProcessId(h, out pid);
       string name = "";
       try { name = Process.GetProcessById((int)pid).ProcessName.ToLowerInvariant(); } catch {}
-      bool fg = IsGame(name) || IsSelf(name);
-      string state = game && !fg ? "blur" : "focus";
+      string state = IsGame(name) || IsSelf(name) ? "focus" : "blur";
       if (state != last) {
         Console.Out.WriteLine(state);
         Console.Out.Flush();
         last = state;
       }
-      bool g = GameRuns();
-      if (g != game) {
-        game = g;
-        Console.Out.WriteLine(game ? "game-open" : "game-closed");
-        Console.Out.Flush();
-      }
-      System.Threading.Thread.Sleep(400);
+      System.Threading.Thread.Sleep(2000);
     }
   }
 }
@@ -109,8 +96,6 @@ export class GameFocusWatcher {
 
   /** Смена фокуса: true — игра (или окно Горна) активна, false — чужое окно. */
   onFocus: ((gameFocused: boolean) => void) | null = null;
-  /** Игра запустилась/закрылась. */
-  onGamePresence: ((running: boolean) => void) | null = null;
 
   start(): void {
     if (process.platform !== 'win32' || this.stopped) return;
@@ -137,7 +122,7 @@ export class GameFocusWatcher {
           '-ExecutionPolicy',
           'Bypass',
           '-EncodedCommand',
-          encodedCommand(observerScript(join(this.userData, 'focus-watcher.dll'))),
+          encodedCommand(observerScript(join(this.userData, 'focus-watcher-v2.dll'))),
         ],
         { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true },
       );
@@ -168,8 +153,6 @@ export class GameFocusWatcher {
       this.buffer = this.buffer.slice(nl + 1);
       if (line === 'focus') this.onFocus?.(true);
       else if (line === 'blur') this.onFocus?.(false);
-      else if (line === 'game-open') this.onGamePresence?.(true);
-      else if (line === 'game-closed') this.onGamePresence?.(false);
     }
   }
 }
