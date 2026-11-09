@@ -174,7 +174,10 @@ jobs:
             # Главный draft — самый полный; make_latest строкой: boolean API
             # молча игнорирует.
             $main = $drafts | Sort-Object { @($_.assets).Count } -Descending | Select-Object -First 1
-            gh api -X PATCH "repos/$env:GH_REPO/releases/$($main.id)" -f draft=false -f make_latest=true | Out-Null
+            # make_latest работает только телом JSON: через -f поля GitHub
+            # молча игнорирует, и Latest остаётся на старом релизе.
+            '{"draft": false, "make_latest": "true"}' |
+              gh api -X PATCH "repos/$env:GH_REPO/releases/$($main.id)" --input - | Out-Null
             Write-Host "Опубликован draft $($main.id) с @(главные ассеты: $(@($main.assets).Count))."
             foreach ($d in @($drafts | Where-Object { $_.id -ne $main.id })) {
               Write-Host "Удалён лишний draft $($d.id) (ассетов: $(@($d.assets).Count))."
