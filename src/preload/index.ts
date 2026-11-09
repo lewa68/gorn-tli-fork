@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('gorn', {
   /** Новая сессия: счётчики с нуля, история никуда не девается. */
   session: {
     reset: () => ipcRenderer.invoke('session:reset'),
+    stop: () => ipcRenderer.invoke('session:stop'),
   },
 
   /** История забегов: поиск и выгрузка — по запросу, не в каждом срезе. */

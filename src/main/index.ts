@@ -343,6 +343,7 @@ app.whenReady().then(async () => {
 
   // Новая сессия: счётчики обнуляются, история остаётся в базе.
   ipcMain.handle('session:reset', () => engine?.resetSession());
+  ipcMain.handle('session:stop', () => engine?.stopSession());
 
   // Поиск по всей истории забегов: в срез она не влезает и не нужна там.
   ipcMain.handle('runs:query', (_e, query: string) =>

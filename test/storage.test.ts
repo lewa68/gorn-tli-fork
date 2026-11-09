@@ -184,4 +184,18 @@ describe('хранилище', () => {
     expect(db.counts().runs).toBe(1);
     expect(db.loadRuns()).toHaveLength(1);
   });
+
+  it('остановка закрывает сессию без открытия новой и переживает перезапуск', () => {
+    db.activeSessionStart();
+    db.resetSession(5000);
+    expect(db.endActiveSession(7000)).toBe(7000);
+    // Активной нет — повторная остановка ничего не меняет.
+    expect(db.endActiveSession(8000)).toBeNull();
+    // Перезапуск приложения: последняя сессия — остановленная, а не новая.
+    expect(db.lastSession()).toEqual({ startedAt: 5000, endedAt: 7000 });
+    // «Запустить» после остановки открывает новую от этого момента.
+    db.resetSession(9000);
+    expect(db.lastSession()).toEqual({ startedAt: 9000, endedAt: null });
+    expect(db.previousSession()).toEqual({ startedAt: 5000, endedAt: 7000 });
+  });
 });

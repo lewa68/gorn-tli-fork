@@ -1706,6 +1706,13 @@ button {
 .session-start:hover {
   background: rgb(76 160 99 / 95%);
 }
+/* Идущая сессия: кнопка становится «Остановить» — красной. */
+.session-start.danger {
+  background: rgb(150 44 44 / 90%);
+}
+.session-start.danger:hover {
+  background: rgb(178 58 58 / 95%);
+}
 .session-total {
   margin-left: auto;
   font-weight: 700;

@@ -757,6 +757,28 @@ export class Storage {
     return now;
   }
 
+  /**
+   * Остановка: активная сессия закрывается, новая НЕ открывается —
+   * счётчики фиксируются до следующего «Запустить».
+   * Возвращает момент закрытия или null, если активной сессии не было.
+   */
+  endActiveSession(now: number): number | null {
+    const res = this.db.prepare('UPDATE session SET ended_at = ? WHERE ended_at IS NULL').run(now);
+    return res.changes > 0 ? now : null;
+  }
+
+  /**
+   * Последняя по счёту сессия — независимо от того, идёт ли она.
+   * Нужна при старте приложения: остановленная вчера сессия не должна
+   * молча превратиться в новую активную.
+   */
+  lastSession(): { startedAt: number; endedAt: number | null } | null {
+    const row = this.db
+      .prepare('SELECT started_at, ended_at FROM session ORDER BY id DESC LIMIT 1')
+      .get() as { started_at: number; ended_at: number | null } | undefined;
+    return row ? { startedAt: row.started_at, endedAt: row.ended_at } : null;
+  }
+
   /** Все сессии в порядке создания. Активная — с endedAt = null. */
   listSessions(): Array<{ startedAt: number; endedAt: number | null }> {
     const rows = this.db

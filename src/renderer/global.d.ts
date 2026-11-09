@@ -68,6 +68,7 @@ declare global {
     setCommunityPrices: (enabled: boolean) => Promise<boolean>;
     session: {
       reset: () => Promise<void>;
+      stop: () => Promise<void>;
     };
     setRunScope: (scope: { playerId: string | null; allSeasons: boolean }) => Promise<void>;
     prices: {

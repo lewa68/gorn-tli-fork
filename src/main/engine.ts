@@ -229,6 +229,8 @@ export interface Snapshot {
   session: {
     /** Начало отсчёта счётчиков. 0 — сессию ещё ни разу не сбрасывали. */
     startedAt: number;
+    /** Момент остановки. null — сессия идёт. */
+    endedAt: number | null;
     /** Итог прошлой сессии — чтобы сброс не выглядел потерей цифр. */
     previous: { netFe: number; inMapMs: number; runs: number } | null;
   };
@@ -380,6 +382,8 @@ export class Engine extends EventEmitter {
   private boundIds: ConfigBaseId[] = [];
   /** Начало активной сессии. 0 — считаем всю историю (сброса не было). */
   private sessionStartedAt = 0;
+  /** Момент остановки сессии; null — сессия идёт. */
+  private sessionEndedAt: number | null = null;
   /** Границы последней закрытой сессии — для итоговой строки. */
   private previousSession: { startedAt: number; endedAt: number } | null = null;
   /** Все сессии из базы — для истории. */
@@ -548,7 +552,16 @@ export class Engine extends EventEmitter {
   }
 
   private async boot(logDir: string): Promise<void> {
-    this.sessionStartedAt = this.storage.activeSessionStart();
+    // Последняя сессия может быть остановленной — тогда она и восстанавливается
+    // (счётчики зафиксированы), а не превращается молча в новую активную.
+    const last = this.storage.lastSession();
+    if (last) {
+      this.sessionStartedAt = last.startedAt;
+      this.sessionEndedAt = last.endedAt;
+    } else {
+      this.sessionStartedAt = this.storage.activeSessionStart();
+      this.sessionEndedAt = null;
+    }
     this.previousSession = this.storage.previousSession();
     this.sessions = this.storage.listSessions();
 
@@ -1064,6 +1077,21 @@ export class Engine extends EventEmitter {
    */
   resetSession(): void {
     this.sessionStartedAt = this.storage.resetSession(Date.now());
+    this.sessionEndedAt = null;
+    this.previousSession = this.storage.previousSession();
+    this.sessions = this.storage.listSessions();
+    this.rebuild();
+  }
+
+  /**
+   * Остановить сессию: конец фиксируется, счётчики и вкладка «Сессия»
+   * замирают до следующего «Запустить». Новая сессия не открывается —
+   * забеги после остановки в сессионные итоги не попадают.
+   */
+  stopSession(): void {
+    const ended = this.storage.endActiveSession(Date.now());
+    if (ended === null) return;
+    this.sessionEndedAt = ended;
     this.previousSession = this.storage.previousSession();
     this.sessions = this.storage.listSessions();
     this.rebuild();
@@ -1461,10 +1489,13 @@ export class Engine extends EventEmitter {
       playerFilter: this.playerFilter,
       current: openFarming ? this.toView(openFarming) : null,
       recent: agg.recent,
-      // Вкладка «Сессия»: закрытые забеги сессии плюс открытый поверх.
-      sessionRuns: openFarming
-        ? [this.toView(openFarming), ...agg.sessionRuns.filter((r) => r.key !== runKey(openFarming))]
-        : agg.sessionRuns,
+      // Вкладка «Сессия»: закрытые забеги сессии плюс открытый поверх —
+      // но только пока сессия идёт: после «Остановить» свежий забег к ней
+      // уже не относится.
+      sessionRuns:
+        openFarming && this.sessionEndedAt === null
+          ? [this.toView(openFarming), ...agg.sessionRuns.filter((r) => r.key !== runKey(openFarming))]
+          : agg.sessionRuns,
       rate: agg.rate,
       feRate: agg.feRate,
       liveRate: perHour(valueFe - costFe - prisonFe, inMapMs),
@@ -1508,6 +1539,7 @@ export class Engine extends EventEmitter {
       prison: { netFe: prisonFe, runs: s.prisonRuns + (openPrison ? 1 : 0) },
       session: {
         startedAt: this.sessionStartedAt,
+        endedAt: this.sessionEndedAt,
         previous: agg.previous,
       },
       totals: {
@@ -1567,7 +1599,13 @@ export class Engine extends EventEmitter {
     // Забег принадлежит сессии, в которой ЗАКОНЧИЛСЯ: сброс посреди карты
     // оставляет её в новой сессии целиком. Иначе открытая карта шла бы
     // в счётчики, пока идёт, и пропадала из них при выходе.
-    const sessionFarming = farming.filter((r) => runEnd(r) >= this.sessionStartedAt);
+    // Сессия — окно [старт, остановка]: после «Остановить» свежие забеги
+    // в сессионные итоги не попадают, а зафиксированные остаются.
+    const sessionEnd = this.sessionEndedAt;
+    const sessionFarming = farming.filter(
+      (r) =>
+        runEnd(r) >= this.sessionStartedAt && (sessionEnd === null || runEnd(r) <= sessionEnd),
+    );
     // Итог сессии — вместе с тюрьмой, время и темп — без неё.
     const sessionRated = sessionFarming.filter((r) => !isPrisonRun(r));
     const sessionPrison = sessionFarming.filter(isPrisonRun);

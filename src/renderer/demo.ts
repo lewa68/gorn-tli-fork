@@ -75,6 +75,7 @@ export const demoSnapshot: Snapshot = {
   sessionRuns: [],
   session: {
     startedAt: now - 3 * 3_600_000,
+    endedAt: null,
     previous: { netFe: 3240, inMapMs: 2 * 3_600_000 + 10 * 60_000, runs: 14 },
   },
   players: [

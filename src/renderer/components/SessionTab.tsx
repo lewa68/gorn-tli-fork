@@ -58,28 +58,41 @@ export function SessionTab({ snapshot }: { snapshot: Snapshot }) {
   const selected = location !== null ? runs.filter((r) => r.name === location) : [];
 
   const started = snapshot.session.startedAt;
-  const elapsed = started > 0 ? Math.max(0, now - started) : 0;
+  // Сессия идёт: начата кнопкой и ещё не остановлена. startedAt = 0 —
+  // системная «вся история» до первого «Запустить»: показываем старт.
+  const running = started > 0 && snapshot.session.endedAt === null;
+  const stoppedAt = snapshot.session.endedAt;
+  const elapsed =
+    started > 0 ? Math.max(0, (stoppedAt ?? now) - started) : 0;
   const valueFe = runs.reduce((a, r) => a + r.valueFe, 0);
   const startedFresh = runs.length > 0;
 
   return (
     <section className="card session-tab">
       <div className="session-head">
-        {/* Таймер: тикает от нажатия «Запустить». */}
+        {/* Таймер: тикает от «Запустить», замирает на «Остановить». */}
         <span className="timer">{started > 0 ? clock(elapsed) : '--:--'}</span>
         <button
-          className="session-start"
+          className={`session-start${running ? ' danger' : ''}`}
           disabled={!window.gorn}
           onClick={() => {
             setLocation(null);
-            void window.gorn?.session.reset();
+            if (running) void window.gorn?.session.stop();
+            else void window.gorn?.session.reset();
           }}
-          title={tr(
-            'Отсчёт и добыча начнутся с нуля; прошлые локации останутся в истории.',
-            'The timer and loot restart from zero; past locations stay in history.',
-          )}
+          title={
+            running
+              ? tr(
+                  'Зафиксировать итоги: таймер и лут остановятся, локации после — уже в новой сессии.',
+                  'Freeze the totals: timer and loot stop; later locations count toward the next session.',
+                )
+              : tr(
+                  'Отсчёт и добыча начнутся с нуля; прошлые локации останутся в истории.',
+                  'The timer and loot restart from zero; past locations stay in history.',
+                )
+          }
         >
-          {tr('Запустить', 'Start')}
+          {running ? tr('Остановить', 'Stop') : tr('Запустить', 'Start')}
         </button>
         {/* Общая ценность добытого за сессию — оценка, как и везде. */}
         <span className="session-total">
@@ -89,10 +102,20 @@ export function SessionTab({ snapshot }: { snapshot: Snapshot }) {
 
       {!startedFresh && (
         <p className="muted">
-          {tr(
-            'Сессия запущена. Лут появится после первых локаций — всё, что добыто с момента нажатия, соберётся здесь.',
-            'Session started. Loot appears after the first locations — everything farmed since the button press gathers here.',
-          )}
+          {running
+            ? tr(
+                'Сессия идёт. Лут появится после первых локаций — всё, что добыто с момента запуска, соберётся здесь.',
+                'Session running. Loot appears after the first locations — everything farmed since the start gathers here.',
+              )
+            : stoppedAt !== null
+              ? tr(
+                  'Сессия остановлена — итоги зафиксированы. «Запустить» начнёт новую с нуля.',
+                  'Session stopped — the totals are frozen. “Start” begins a new one from zero.',
+                )
+              : tr(
+                  'Нажми «Запустить»: отсчёт и лут начнутся с этого момента.',
+                  'Press “Start”: the timer and loot begin from this moment.',
+                )}
         </p>
       )}
 
