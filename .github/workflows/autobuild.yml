@@ -166,7 +166,9 @@ jobs:
           $draft = $rels | Where-Object { $_.draft -and $_.tag_name -eq $tag } | Select-Object -First 1
           if ($draft) {
             Write-Host "Релиз $tag собран, но остался черновиком — публикую."
-            gh api -X PATCH "repos/$env:GH_REPO/releases/$($draft.id)" -f draft=false | Out-Null
+            # make_latest обязателен: без него Latest остаётся на прошлом
+            # релизе, и канал обновлениям видит только старую версию.
+            gh api -X PATCH "repos/$env:GH_REPO/releases/$($draft.id)" -f draft=false -F make_latest=true | Out-Null
           }
           $rel = gh release view $tag --json isDraft -q .isDraft 2>$null
           if ($rel -ne 'false') {
