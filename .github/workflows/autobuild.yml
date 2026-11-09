@@ -69,22 +69,38 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          # База — версия автора из package.json (после merge она чистая).
-          $base = (Get-Content package.json -Raw | ConvertFrom-Json).version -replace '-fork\.\d+$',''
-          # Последний релиз канала: если он на той же базе — номер сборки +1.
+          $pkg = Get-Content package.json -Raw
+          $current = [regex]::Match($pkg, '"version":\s*"([^"]+)"').Groups[1].Value
+          $released = (gh api repos/$env:GH_REPO/releases/latest --jq .tag_name 2>$null)
+
+          if (steps.sync.outputs.changed != 'true') {
+            # upstream не приносил ничего нового: версия из package.json
+            # уже правильная (её поставил ассистент или прошлый прогон),
+            # пересчитывать нечего. Публикуем, только если она ещё не вышла.
+            "version=$current" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+            if ($released -eq "v$current") {
+              Write-Host "Релиз v$current уже опубликован — публикации не требуется."
+              "publish=false" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+            } else {
+              Write-Host "Релиза v$current ещё нет — публикуем как есть."
+              "publish=true" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+            }
+            exit 0
+          }
+
+          # Влит новый upstream: версия = <версия автора>-fork.<номер сборки>.
+          $base = $current -replace '-fork\.\d+$', ''
           $n = 1
-          $tag = (gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>$null)
-          if ($tag -match '^v?(.+)-fork\.(\d+)$' -and $Matches[1] -eq $base) { $n = [int]$Matches[2] + 1 }
+          if ($released -match '^v?(.+)-fork\.(\d+)$' -and $Matches[1] -eq $base) { $n = [int]$Matches[2] + 1 }
           $version = "$base-fork.$n"
           Write-Host "Версия форка: $version"
 
-          # Вписываем в package.json и коммитим — версия живёт с кодом.
           # Точечная замена строки версии: ConvertTo-Json перевёл бы
           # русские строки в \u-последовательности и переформатировал файл.
-          $raw = Get-Content package.json -Raw
-          $raw = $raw -replace '"version":\s*"[^"]*"', "`"version`": `"$version`""
-          Set-Content package.json $raw -Encoding utf8 -NoNewline
+          $pkg = $pkg -replace '"version":\s*"[^"]*"', "`"version`": `"$version`""
+          Set-Content package.json $pkg -Encoding utf8 -NoNewline
           git config user.name 'fork-autobuild'
           git config user.email 'actions@users.noreply.github.com'
           git add package.json
@@ -92,13 +108,7 @@ jobs:
           git push origin HEAD
 
           "version=$version" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
-          $released = (gh release view "v$version" --json tagName --jq .tagName 2>$null)
-          if ($released -eq "v$version") {
-            Write-Host "Релиз v$version уже существует — публикация не нужна."
-            "publish=false" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
-          } else {
-            "publish=true" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
-          }
+          "publish=true" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Зависимости
         if: steps.ver.outputs.publish == 'true'
