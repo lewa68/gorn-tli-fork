@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { app } from 'electron';
+import { app, session } from 'electron';
 
 import electronUpdater from 'electron-updater';
 
@@ -91,6 +91,13 @@ export class Updater extends EventEmitter {
     // там всегда «официальная версия + наши фиксы», официальное
     // обновление фиксы не затирает.
     this.state.supported = app.isPackaged && !this.isPortable;
+
+    // electron-updater ходит через собственную сессию, которая по
+    // умолчанию наследует системный прокси. Локальные VPN-клиенты
+    // (слушающие 127.0.0.1) нередко рвут скачивание больших файлов
+    // с GitHub — лёгкий запрос проходит, а установщик получает 504.
+    // Канал обновлений — прямые адреса GitHub: пускаем их мимо прокси.
+    session.fromPartition('electron-updater').setProxy({ mode: 'direct' }).catch(() => {});
 
     // Качаем сами: канал форка, трафик — раз в несколько недель.
     autoUpdater.autoDownload = true;
