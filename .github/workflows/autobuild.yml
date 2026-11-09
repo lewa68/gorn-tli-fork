@@ -158,23 +158,50 @@ jobs:
           npm run build
           npx electron-builder --win --publish always
 
-          # Известная ловушка: если draft-релиз этого тега уже существовал,
-          # electron-builder заливает в него ассеты, но не публикует.
-          # Находим такой draft и снимаем черновой статус сами.
+          # Сборка publish-ит electron-builder'ом, но финальное состояние
+          # контролируем сами: с несколькими таргетами он способен оставить
+          # НЕСКОЛЬКО draft-релизов тега, каждый с частью ассетов.
           $tag = "v$env:VERSION"
+          $want = @(
+            "Gorn-$env:VERSION-setup.exe",
+            "Gorn-$env:VERSION-setup.exe.blockmap",
+            "Gorn-$env:VERSION-portable.exe",
+            'latest.yml'
+          )
           $rels = gh api "repos/$env:GH_REPO/releases?per_page=100" | ConvertFrom-Json
-          $draft = $rels | Where-Object { $_.draft -and $_.tag_name -eq $tag } | Select-Object -First 1
-          if ($draft) {
-            Write-Host "Релиз $tag собран, но остался черновиком — публикую."
-            # make_latest обязателен: без него Latest остаётся на прошлом
-            # релизе, и канал обновлениям видит только старую версию.
-            gh api -X PATCH "repos/$env:GH_REPO/releases/$($draft.id)" -f draft=false -F make_latest=true | Out-Null
+          $drafts = @($rels | Where-Object { $_.draft -and $_.tag_name -eq $tag })
+          if ($drafts.Count -gt 0) {
+            # Главный draft — самый полный; make_latest строкой: boolean API
+            # молча игнорирует.
+            $main = $drafts | Sort-Object { @($_.assets).Count } -Descending | Select-Object -First 1
+            gh api -X PATCH "repos/$env:GH_REPO/releases/$($main.id)" -f draft=false -f make_latest=true | Out-Null
+            Write-Host "Опубликован draft $($main.id) с @(главные ассеты: $(@($main.assets).Count))."
+            foreach ($d in @($drafts | Where-Object { $_.id -ne $main.id })) {
+              Write-Host "Удалён лишний draft $($d.id) (ассетов: $(@($d.assets).Count))."
+              gh api -X DELETE "repos/$env:GH_REPO/releases/$($d.id)" | Out-Null
+            }
           }
-          $rel = gh release view $tag --json isDraft -q .isDraft 2>$null
-          if ($rel -ne 'false') {
-            Write-Host "::error::Релиз $tag не опубликован (gh видит: '$rel'). Загрузка ассетов оборвалась — перезапусти прогон."
+          # Чего не хватает — доливаем из локальной папки сборки: не важно,
+          # в какой draft что залетело, итог обязан быть полным.
+          $have = @(gh release view $tag --repo $env:GH_REPO --json assets -q '.assets[].name')
+          foreach ($f in $want) {
+            if ($have -notcontains $f) {
+              $p = Join-Path 'release' $f
+              if (Test-Path $p) {
+                gh release upload $tag $p --repo $env:GH_REPO --clobber | Out-Null
+                Write-Host "Долит из сборки: $f"
+              } else {
+                Write-Host "::warning::Файла нет ни в релизе, ни в сборке: $f"
+              }
+            }
+          }
+          # Контроль: опубликован и полный.
+          $final = gh release view $tag --repo $env:GH_REPO --json isDraft,assets -q '{d: .isDraft, n: (.assets | length)}' | ConvertFrom-Json
+          if ($final.d -or $final.n -lt $want.Count) {
+            Write-Host "::error::Релиз $tag неполный (draft=$($final.d), ассетов $($final.n)/$($want.Count))."
             exit 1
           }
+          Write-Host "Релиз $tag опубликован, ассетов: $($final.n)."
 
       - name: Заметки релиза — отличия от официальной версии
         if: steps.ver.outputs.publish == 'true'
