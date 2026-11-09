@@ -88,6 +88,20 @@ jobs:
             exit 0
           }
 
+          # Правки самого пайплайна (.github/**) приложение не меняют —
+          # новая сборка на них не нужна. Выпускаем только если менялось
+          # что-то кроме workflow-файлов.
+          if ("$releasedSha" -ne "" -and "$releasedSha" -ne "$head") {
+            $appChanged = git diff --name-only "$releasedSha..$head" |
+              Where-Object { $_ -notmatch '^\.github/' }
+            if (-not $appChanged) {
+              Write-Host "После релиза менялись только файлы пайплайна — публикации не требуется."
+              "version=$current" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+              "publish=false" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+              exit 0
+            }
+          }
+
           # Номер сборки: +1 к последнему релизу той же базы; новая база
           # (автор выпустил новую версию) — снова fork.1. Версию, правленную
           # в package.json руками на больший номер, уважаем.
@@ -133,17 +147,27 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           VERSION: ${{ steps.ver.outputs.version }}
         run: |
           # electron-builder упаковывает готовый dist: main/preload собирает
           # esbuild (build-electron.mjs), renderer — vite build.
           npm run build
           npx electron-builder --win --publish always
-          # electron-builder может тихо умереть на загрузке ассетов, оставив
-          # draft-релиз с неполным набором файлов. Публикацию проверяем сами.
-          $rel = gh release view "v$env:VERSION" --json isDraft -q .isDraft 2>$null
+
+          # Известная ловушка: если draft-релиз этого тега уже существовал,
+          # electron-builder заливает в него ассеты, но не публикует.
+          # Находим такой draft и снимаем черновой статус сами.
+          $tag = "v$env:VERSION"
+          $rels = gh api "repos/$env:GH_REPO/releases?per_page=100" | ConvertFrom-Json
+          $draft = $rels | Where-Object { $_.draft -and $_.tag_name -eq $tag } | Select-Object -First 1
+          if ($draft) {
+            Write-Host "Релиз $tag собран, но остался черновиком — публикую."
+            gh api -X PATCH "repos/$env:GH_REPO/releases/$($draft.id)" -f draft=false | Out-Null
+          }
+          $rel = gh release view $tag --json isDraft -q .isDraft 2>$null
           if ($rel -ne 'false') {
-            Write-Host "::error::Релиз v$env:VERSION не опубликован (gh видит: '$rel'). Скорее всего загрузка ассетов оборвалась — перезапусти прогон."
+            Write-Host "::error::Релиз $tag не опубликован (gh видит: '$rel'). Загрузка ассетов оборвалась — перезапусти прогон."
             exit 1
           }
 
