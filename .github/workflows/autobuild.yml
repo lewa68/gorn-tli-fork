@@ -70,12 +70,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
+          UPSTREAM_CHANGED: ${{ steps.sync.outputs.changed }}
         run: |
           $pkg = Get-Content package.json -Raw
           $current = [regex]::Match($pkg, '"version":\s*"([^"]+)"').Groups[1].Value
           $released = (gh api repos/$env:GH_REPO/releases/latest --jq .tag_name 2>$null)
 
-          if ('${{ steps.sync.outputs.changed }}' != 'true') {
+          if ($env:UPSTREAM_CHANGED -ne 'true') {
             # upstream не приносил ничего нового: версия из package.json
             # уже правильная (её поставил ассистент или прошлый прогон),
             # пересчитывать нечего. Публикуем, только если она ещё не вышла.
