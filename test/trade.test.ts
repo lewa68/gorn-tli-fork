@@ -169,6 +169,29 @@ describe('слияние торговых событий', () => {
     // Отозванный и выставленный заново лот не должен считаться дважды.
     expect(ledger.activeListings()).toHaveLength(0);
   });
+
+  it('XchgRecall2 — тот же отзыв в протоколе SS16', () => {
+    const ledger = new TradeLedger();
+    ledger.add({
+      ts: 1,
+      configBaseId: 261010,
+      qty: -1,
+      proto: 'XchgForSale',
+      kind: 'trade',
+      pageId: 102,
+      slotId: 3,
+    });
+    ledger.add({
+      ts: 2,
+      configBaseId: 261010,
+      qty: 1,
+      proto: 'XchgRecall2',
+      kind: 'trade',
+      pageId: 100,
+      slotId: 2,
+    });
+    expect(ledger.activeListings()).toHaveLength(0);
+  });
 });
 
 describe('референсная цена', () => {

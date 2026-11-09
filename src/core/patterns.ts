@@ -113,6 +113,9 @@ const PROTO_KINDS: Record<string, ProtoKind> = {
   XchgBuy: 'trade',
   XchgReceive: 'trade',
   XchgRecall: 'trade',
+  // SS16: отзыв лота переименован XchgRecall → XchgRecall2, содержимое
+  // операции то же — предметы возвращаются в сумку ItemChange-ами.
+  XchgRecall2: 'trade',
   // Торговец-NPC. Купленное — не дроп: иначе покупка компасов засчиталась бы
   // как добыча и завысила доход. Учёт потраченного у торговца — отдельная
   // задача, сейчас эти операции просто не влияют на цифры.

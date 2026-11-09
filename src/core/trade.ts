@@ -187,10 +187,12 @@ export class TradeLedger {
         break;
 
       case 'XchgRecall':
+      case 'XchgRecall2':
         // Лот отозван — предмет вернулся, продажи не было. Выставление
         // при этом снимается с бумажного счёта: иначе отозванный
         // и выставленный заново предмет считался бы дважды, занижая
-        // коэффициент реализации.
+        // коэффициент реализации. SS16 переименовала операцию в
+        // XchgRecall2 — содержание то же.
         if (delta.qty > 0 && delta.configBaseId !== FE_ID) {
           this.recalls.push({ ts: delta.ts, configBaseId: delta.configBaseId, qty: delta.qty });
         }
