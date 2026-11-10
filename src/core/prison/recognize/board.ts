@@ -3,7 +3,7 @@
  * геометрии (geometry.ts) и читает только маленькие области кадра.
  */
 import type { Beast, BoardView, Box as ViewBox, CellView, Tier, ToolId } from '../view.js';
-import { cardBox, cardCenters, classifyCard, readDoorNumber } from './cards.js';
+import { cardBox, cardCenters, classifyCard, iconRow, readDoorNumber } from './cards.js';
 import {
   borderColor,
   preyVec,
@@ -254,11 +254,28 @@ export function readBoard(frame: Frame, geo: Geometry, t: BoardTemplates): Board
     board.chain = { targets: cells.flatMap((c, i) => (c.jaws ? [i] : [])) };
     return board;
   }
+  let centers = cardCenters(frame, geo);
+  // Двери — до заголовка: карточки с читаемыми номерами в пределах хода
+  // надёжнее текстового эталона заголовка. На английском клиенте заголовок
+  // ложно читается как «ratway» (кадры 10.11), и прежний ранний выход
+  // выдавал экран дверей за «Выберите цель».
+  if (header !== 'patrol' && looksLikeDoors(frame, geo, centers, board.warden, t)) {
+    header = 'patrol';
+  }
+  // Ряд решений по иконкам: подписи («End Day») на английском не собираются
+  // в группы, иконки же читаются у всех языков (Replace/End по 0,999).
+  // Настоящая «крысиная тропа» иконок решений не содержит — остаётся собой.
+  if (header !== 'patrol') {
+    const row = iconRow(frame, geo, t.screens.cards);
+    if (row) {
+      header = 'manage';
+      centers = row.slots;
+    }
+  }
   if (header === 'ratway') {
     board.decision = { kind: 'ratway' };
     return board;
   }
-  const centers = cardCenters(frame, geo);
   // Надпись над карточками иногда не узнаётся (кадры со «Пойти в допросную»
   // и другие), хотя двери читаются: тогда выбор двери — если каждая карточка
   // читается как дверь в пределах хода и ни одна не похожа на карточку решения

@@ -75,6 +75,11 @@ export function readDoorNumber(frame: Frame, geo: Geometry, cx: number, digits: 
   const bottoms = gs.map((g) => g.y1).sort((a, b) => a - b);
   const base = bottoms[bottoms.length >> 1]!;
   // Высота строчных букв — нижняя четверть знаков на строке; цифры заметно выше.
+  // Английские строчные выше русских (15 против ~12 опорных px при цифрах 18),
+  // поэтому множитель 1,25 отбраковывал и цифры: «Go to Cell 5» не читался,
+  // двери оставались пустыми (кадры 10.11, англ. клиент). 1,15 отсекает
+  // строчные (15 < 17,25) и пропускает цифры (18 ≥ 17,25); «а»-как-«0»
+  // (0,46 при пороге 0,4) по-прежнему не проходит по высоте.
   const heights = gs
     .filter((g) => Math.abs(g.y1 - base) <= 2 * geo.s)
     .map((g) => g.y1 - g.y0)
@@ -83,7 +88,7 @@ export function readDoorNumber(frame: Frame, geo: Geometry, cx: number, digits: 
   let n = '';
   for (let i = gs.length - 1; i >= 0; i--) {
     const g = gs[i]!;
-    if (Math.abs(g.y1 - base) > 2 * geo.s || g.y1 - g.y0 < 1.25 * xh) break;
+    if (Math.abs(g.y1 - base) > 2 * geo.s || g.y1 - g.y0 < 1.15 * xh) break;
     // Порог ниже, чем у дней: цифры номера мельче, а высокий знак на
     // строке в конце подписи — уже почти наверняка цифра.
     const r = readDigit(frame, g, digits, 0.4);
@@ -97,6 +102,39 @@ export function readDoorNumber(frame: Frame, geo: Geometry, cx: number, digits: 
 }
 
 const iconBuf = new Float32Array(12 * 12 * 3);
+
+/**
+ * Ряд карточек решений по иконкам, без подписей: раскладка (2, 3, 4 или 1
+ * карточка), в которой КАЖДЫЙ слот уверенно узнаётся как карточка решения.
+ * Подписи зависят от языка клиента (эталоны русские, «End Day» на
+ * английском не собирается в группу) — иконки же одинаковы у всех (кадры
+ * 10.11: Replace и End по 0,999). null — ряда решений нет.
+ */
+export function iconRow(
+  frame: Frame,
+  geo: Geometry,
+  protos: { label: string; v: Float32Array }[],
+  min = CARD_ROW_MIN,
+): { slots: number[]; kinds: string[] } | null {
+  for (const n of [4, 3, 2, 1]) {
+    const slots = SLOTS[n]!;
+    const kinds: string[] = [];
+    let ok = true;
+    for (const cx of slots) {
+      const r = classifyCard(frame, geo, cx, protos);
+      if (r.score < min) {
+        ok = false;
+        break;
+      }
+      kinds.push(r.label);
+    }
+    if (ok) return { slots, kinds };
+  }
+  return null;
+}
+
+/** Порог узнавания иконки карточки в ряду решений (0,999 у верных, ≤0,58 у прочего). */
+export const CARD_ROW_MIN = 0.6;
 
 /** Значок карточки решения → класс по прототипам. */
 export function classifyCard(
