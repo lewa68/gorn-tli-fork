@@ -486,6 +486,11 @@ app.whenReady().then(async () => {
     await mkdir(prisonShotsDir, { recursive: true });
     return shell.openPath(prisonShotsDir);
   });
+  // Память забега тюрьмы — с нуля: следующий кадр строит состояние заново.
+  ipcMain.handle('prison:reset', () => {
+    prison?.reset();
+    return true;
+  });
 
   // Пульт: Esc, вкладка, переключённая в нём самом.
   ipcMain.on('panel:ready', (e) => panel?.markReady(e.sender));
@@ -711,6 +716,8 @@ function registerShortcuts(): void {
     ['Control+Alt+D', () => toastLayer?.toggleAdjusting()],
     // Подсказка в тюрьме вручную: если автоматический снимок не сработал.
     ['Control+Alt+P', () => prison?.captureNow()],
+    // Память тюрьмы — с нуля: когда советы пошли мимо экрана.
+    ['Control+Alt+R', () => prison?.reset()],
     // Пульт поверх игры. Ctrl+Alt+Space на машине автора занят другой
     // программой (проверка 19.10), поэтому T — «табло».
     ['Control+Alt+T', () => panel?.toggle()],

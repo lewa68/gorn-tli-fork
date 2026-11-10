@@ -101,6 +101,7 @@ contextBridge.exposeInMainWorld('gorn', {
   getPrisonSaveShots: () => ipcRenderer.invoke('settings:prisonSaveShots'),
   setPrisonSaveShots: (enabled: boolean) => ipcRenderer.invoke('settings:setPrisonSaveShots', enabled),
   openPrisonShots: () => ipcRenderer.invoke('settings:openPrisonShots'),
+  resetPrison: () => ipcRenderer.invoke('prison:reset'),
   prison: {
     /** Страница стрелок подписалась и готова принимать подсказки. */
     ready: () => ipcRenderer.send('prison:ready'),

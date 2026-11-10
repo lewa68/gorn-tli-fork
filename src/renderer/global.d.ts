@@ -114,6 +114,7 @@ declare global {
     getPrisonSaveShots: () => Promise<boolean>;
     setPrisonSaveShots: (enabled: boolean) => Promise<boolean>;
     openPrisonShots: () => Promise<string>;
+    resetPrison: () => Promise<boolean>;
     capture: {
       onStart: (cb: (req: { sourceId: string; width: number; height: number }) => void) => () => void;
       onStop: (cb: () => void) => () => void;

@@ -116,6 +116,18 @@ export class OwnAdvisor {
   }
 
   /**
+   * Забыть память забега и начать с чистого листа (геометрия экрана
+   * остаётся — калибровка независима от хода игры). Следующий кадр
+   * строит состояние заново.
+   */
+  reset(): void {
+    this.adapter = new PrisonAdapter();
+    this.held = null;
+    this.current = -1;
+    this.saveState();
+  }
+
+  /**
    * Игрок сходил: досчёт по прошлому кадру бросить — его «уточнено» пришло
    * бы поверх «смотрю…» и показало ход, которого на экране уже нет.
    */
@@ -245,6 +257,29 @@ export class OwnAdvisor {
       if (pos.fallback) {
         console.log(`[тюрьма] кадр ${msg.id}: ${pos.problem}, совет по подсвеченным целям`);
         this.reply({ type: 'hint', id: msg.id, phase: 'final', frame: size, live: false, ...hint(pos.fallback, ctx) });
+      } else if (pos.problem !== 'сокровищница: доска за окном ещё не видна') {
+        // Память не объясняет экран — «нет дверей», «нет едока», «ни один
+        // ход движка не виден»: память протухла (перезапуск приложения
+        // посреди забега, пропущенные экраны, смена языка клиента).
+        // Экран важнее памяти: перечитать всё с этого кадра и посоветовать
+        // по-новому, а не молчать или советовать из мусора.
+        console.log(`[тюрьма] кадр ${msg.id}: ${pos.problem} — перечитываю с нуля`);
+        this.adapter = new PrisonAdapter();
+        this.held = null;
+        this.adapter.logDay(msg.day);
+        const view = seen;
+        if (view?.screen === 'board') this.adapter.board(view.board);
+        else if (view?.screen === 'pick') this.adapter.pick(view.pick, msg.fresh, msg.rerolled, msg.after);
+        this.saveState();
+        ctx.warden = this.adapter.mem.warden;
+        ctx.ratway = this.adapter.mem.step === 'ratway';
+        ctx.cancelFirst = this.adapter.mem.step === 'chain' && this.adapter.mem.firstBite;
+        const fresh = this.adapter.position();
+        if (fresh.ok) {
+          await this.advise(msg, fresh, ctx, size);
+          return;
+        }
+        this.reply({ type: 'clear', id: msg.id });
       } else {
         console.log(`[тюрьма] кадр ${msg.id}: нет совета (${pos.problem})`);
         this.reply({ type: 'clear', id: msg.id });

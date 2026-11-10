@@ -19,7 +19,7 @@ import { join } from 'node:path';
 import type { Frame } from '../../core/prison/recognize/types.js';
 import { defaultSolveThreads, startSolvePool } from '../../core/prison/solver/pool.js';
 import { OwnAdvisor } from './ownAdvisor.js';
-import type { PrisonCancelMessage, PrisonShotMessage, PrisonWorkerReply, SavedNear } from './protocol.js';
+import type { PrisonCancelMessage, PrisonResetMessage, PrisonShotMessage, PrisonWorkerReply, SavedNear } from './protocol.js';
 
 /** Канал к main-процессу Горна (Electron utilityProcess). */
 const port = (process as unknown as { parentPort: { postMessage(m: unknown): void; on(ev: 'message', fn: (e: { data: unknown }) => void): void } }).parentPort;
@@ -108,13 +108,17 @@ function reply(msg: PrisonWorkerReply): void {
 const own = new OwnAdvisor(reply);
 
 port.on('message', (e) => {
-  const msg = e.data as PrisonShotMessage | PrisonCancelMessage | { type: 'init'; state: unknown; near: SavedNear | null };
+  const msg = e.data as PrisonShotMessage | PrisonCancelMessage | PrisonResetMessage | { type: 'init'; state: unknown; near: SavedNear | null };
   if (msg.type === 'init') {
     own.init(msg.state, msg.near);
     return;
   }
   if (msg.type === 'cancel') {
     own.cancel();
+    return;
+  }
+  if (msg.type === 'reset') {
+    own.reset();
     return;
   }
   // Пиксели нужны и для PNG. Без копии: разбор их только читает.

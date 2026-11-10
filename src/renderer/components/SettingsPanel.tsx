@@ -486,6 +486,19 @@ export function SettingsPanel({
               {tr('Открыть', 'Open')}
             </button>
           </div>
+          <div className="set-row">
+            <span
+              title={tr(
+                'Забыть всё, что трекер запомнил о текущем забеге тюрьмы, и построить состояние заново со следующего кадра. Если советы пошли мимо экрана.',
+                'Forget everything the tracker remembers about the current prison run and rebuild state from the next capture. For when hints stop matching the screen.',
+              )}
+            >
+              {tr('Перечитать тюрьму с нуля', 'Re-learn prison from scratch')}
+            </span>
+            <button type="button" onClick={() => void window.gorn?.resetPrison()}>
+              {tr('Сбросить', 'Reset')}
+            </button>
+          </div>
           <p className="muted small">
             {tr(
               'Единственная функция Горна, которая смотрит на экран: в тюрьме по строкам лога снимается экран с игрой, распознаётся доска и считается ход. Снимки никуда не уходят и сохраняются, только если включено «Сохранять кадры». Нужен режим «окно без рамки» на весь монитор. Ctrl+Alt+P — снять кадр вручную.',

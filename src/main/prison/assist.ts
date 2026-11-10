@@ -10,7 +10,7 @@ import { PrisonTriggers, stampMs, type PrisonShot } from '../../core/prisonTrigg
 import { ArrowLayer } from './arrowLayer.js';
 import { writeAtomic } from './atomicWrite.js';
 import { ScreenStream, type Frame } from './screenStream.js';
-import type { PrisonCancelMessage, PrisonShotMessage, PrisonWorkerReply, SavedNear } from './protocol.js';
+import type { PrisonCancelMessage, PrisonResetMessage, PrisonShotMessage, PrisonWorkerReply, SavedNear } from './protocol.js';
 
 /** Экран должен столько не меняться, чтобы его снять (анимации осели). */
 const STABLE_MS = 300;
@@ -230,6 +230,15 @@ export class PrisonAssist {
     if (!this.enabled) return;
     this.layer.thinking(this.gameDisplay());
     void this.capture({ kind: 'board', fresh: false, after: '', treasureView: false, rerolled: false, treasureClosed: false, theme: null, day: this.triggers.lastDay, lines: [] }, true);
+  }
+
+  /**
+   * Забыть память забега тюрьмы: следующий кадр строит состояние с нуля.
+   * Для случаев, когда память протухла (перезапуск приложения посреди
+   * забега, смена языка клиента) и советы идут мимо экрана.
+   */
+  reset(): void {
+    this.worker?.postMessage({ type: 'reset' } satisfies PrisonResetMessage);
   }
 
   dispose(): void {

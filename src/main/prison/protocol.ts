@@ -41,6 +41,11 @@ export interface PrisonCancelMessage {
   type: 'cancel';
 }
 
+/** Забыть память забега: следующий кадр строит состояние с нуля. */
+export interface PrisonResetMessage {
+  type: 'reset';
+}
+
 /** Где доска на кадре (геометрия распознавания): сохраняется между запусками. */
 export type SavedNear = Geometry;
 
