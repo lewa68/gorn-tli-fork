@@ -28,6 +28,14 @@ describe('доска на английском клиенте', () => {
     expect(view.board.at.doorCards).toHaveLength(3);
   });
 
+  it('обычная доска без карточек: ложный «ratway» больше не решает за экран', () => {
+    const { view } = read(frame('plain-board-en-1920.png'), null);
+    expect(view.screen).toBe('board');
+    if (view.screen !== 'board') return;
+    expect(view.board.decision).toBeNull();
+    expect(view.board.doors).toEqual([]);
+  });
+
   it('ряд решений (Заменить / Завершить) узнаётся по иконкам, рамки на карточках', () => {
     const { view } = read(frame('manage-en-1920.png'), null);
     expect(view.screen).toBe('board');
