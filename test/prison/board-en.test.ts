@@ -28,6 +28,17 @@ describe('доска на английском клиенте', () => {
     expect(view.board.at.doorCards).toHaveLength(3);
   });
 
+  it('экран дверей с одной нечитаемой карточкой: читанные двери остаются дверями', () => {
+    // Кадр 10.11 17:44: раньше одна непрочитанная цифра превращала экран
+    // в «крысиную тропу», и совет называл камеры вне предложенных.
+    const { view } = read(frame('doors-partial-en-1920.png'), null);
+    expect(view.screen).toBe('board');
+    if (view.screen !== 'board') return;
+    expect(view.board.decision).toBeNull();
+    expect(view.board.doors).toEqual([10, 12]);
+    expect(view.board.at.doorCards).toHaveLength(2);
+  });
+
   it('обычная доска без карточек: ложный «ratway» больше не решает за экран', () => {
     const { view } = read(frame('plain-board-en-1920.png'), null);
     expect(view.screen).toBe('board');

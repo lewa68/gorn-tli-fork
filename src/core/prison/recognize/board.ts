@@ -202,13 +202,21 @@ function reachable(from: number, to: number): boolean {
 function looksLikeDoors(frame: Frame, geo: Geometry, centers: number[], warden: number | null, t: BoardTemplates): boolean {
   if (!centers.length || warden === null) return false;
   let office = 0;
+  let read = 0;
   for (const cx of centers) {
     if (classifyCard(frame, geo, cx, t.screens.cards).score >= CARD_MIN) return false;
     const n = readDoorNumber(frame, geo, cx, t.digits);
-    if (n === null || !reachable(warden, n === 0 ? 0 : n - 1)) return false;
+    if (n === null || !reachable(warden, n === 0 ? 0 : n - 1)) continue;
+    read++;
     if (n === 0) office++;
   }
-  return office <= 1;
+  // Достаточно одной прочитанной двери и не больше одной допросной. НЕ все
+  // карточки: раньше одна непрочитанная цифра рушила весь экран — он
+  // превращался в «крысиную тропу», и совет называл камеры вне
+  // предложенных (кадр 10.11 17:44: «иди в №7» при дверях 11+). Нечитаемую
+  // карточку patrol-ветвь ниже просто пропустит; настоящая «тропа» без
+  // цифр не прочитается ни разу — и останется собой.
+  return read >= 1 && office <= 1;
 }
 
 /** Доска целиком при известной геометрии. */
