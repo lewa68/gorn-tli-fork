@@ -48,7 +48,21 @@ const CARD_DY = [0, -6, -3, -9, 3];
 const shiftY = (b: readonly [number, number, number, number], dy: number) =>
   [b[0], b[1] + dy, b[2], b[3] + dy] as [number, number, number, number];
 
-/** Карта орудия: сумма сходства картинки и названия по каждому орудию. */
+/**
+ * Карта орудия: сумма сходства картинки и названия по каждому орудию.
+ *
+ * Картинка орудия не зависит от языка клиента, а полоска названия — зависит:
+ * эталоны названий собраны с русского клиента, и на английском клиенте текст
+ * не совпадает ни с одним эталоном (0,65–0,75 при пороге 0,8) — три верно
+ * узнанные по картинке карты браковались целиком («Не узнал карты выбора»,
+ * кадр 10.11 16:40). Поэтому почти точная картинка (≥ ART_SURE) с большим
+ * отрывом от второго кандидата (≥ ART_LEAD) принимается без названия:
+ * 16×16-выборка разных орудий даёт 0,999 против 0,75–0,80 у соседей, и
+ * перепутать так можно только новую карту с почти той же графикой.
+ */
+const ART_SURE = 0.99;
+const ART_LEAD = 0.1;
+
 function readCard(frame: Frame, geo: Geometry, cx: number, t: ScreensTemplate): ToolId | null {
   let id: string | null = null;
   let best = CARD_MIN;
@@ -64,6 +78,14 @@ function readCard(frame: Frame, geo: Geometry, cx: number, t: ScreensTemplate): 
       if (top > bestArt) {
         bestArt = top;
         artScores = s;
+      }
+    }
+    if (bestArt >= ART_SURE) {
+      const ranked = [...artScores.entries()].sort((a, b) => b[1] - a[1]);
+      const [topLabel, topScore] = ranked[0]!;
+      const second = ranked[1]?.[1] ?? -2;
+      if (topScore - second >= ART_LEAD && (TOOL_IDS as readonly string[]).includes(topLabel)) {
+        return topLabel as ToolId;
       }
     }
     sample(frame, geo, shiftY(pickTitle(cx), dy), 86, 11, 1, titleBuf);
