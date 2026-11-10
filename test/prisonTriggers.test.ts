@@ -58,6 +58,22 @@ describe('триггеры тюрьмы', () => {
     expect(shots[0]!.kind).toBe('objective');
   });
 
+  it('утро без Card_Up: клетки загорелись — кадр дверей всё равно снимается', () => {
+    // 10.11 17:55: день 8 начался, игра написала только Cell_Light ×3 —
+    // до конца дня ни одного совета, триггера на это не было.
+    const { t, timer, shots } = setup();
+    t.feed([L('19.00.00', '[S16LastDay] check cur=8 max=20 played=false')]);
+    timer.run(); // утренняя доска снята
+    t.feed([
+      L('19.00.01', 'AudioMgr@PlayAudio  AudioEnum  == UI_S16_Cell_Light'),
+      L('19.00.01', 'AudioMgr@PlayAudio  AudioEnum  == UI_S16_Cell_Light'),
+      L('19.00.01', 'AudioMgr@PlayAudio  AudioEnum  == UI_S16_Cell_Light'),
+    ]);
+    expect(timer.run()).toEqual([900]);
+    expect(shots).toHaveLength(2);
+    expect(shots[1]).toMatchObject({ kind: 'board' });
+  });
+
   it('выбор орудий после «Обновить» помечен', () => {
     const { t, timer, shots } = setup();
     t.feed([L('19.00.00', 'UIButton@ normal-click Btn_S16Board_RelicPop_Reroll')]);

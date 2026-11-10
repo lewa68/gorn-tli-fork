@@ -41,6 +41,10 @@ export const PRISON_RULES: readonly Rule[] = [
   { kind: 'instruments', re: /Btn_S16Board_RelicPop_Reroll/i, settleMs: 900 },
   // День начался: баннер закрылся, игра пишет номер дня (на итогах — max=0).
   { kind: 'board', re: /\[S16LastDay\] check cur=\d+ max=[1-9]/i, settleMs: 500 },
+  // Клетки дверей загорелись: карточки прилетают. Надёжный сигнал утра —
+  // «UI_S16_Card_Up» игра пишет не всегда (10.11 17:55: день 8 начался,
+  // Card_Up не было, Cell_Light ×3 — и до конца дня ни одного совета).
+  { kind: 'board', re: /UI_S16_Cell_Light/i, settleMs: 900 },
   { kind: 'board', re: /UI_S16_Card_Up/i, settleMs: 400 },
   { kind: 'board', re: /Btn_S16Board_ActionCell/i, settleMs: 600 },
   // Выбрана дверь: надзиратель идёт. Обычно следом UI_S16_Card_Up или окно
